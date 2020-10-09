@@ -6,4 +6,4 @@ services:
     ports:
       - "48555:48555"
     volumes:
-      - ".:/data"
+      - ./data/:/grakn-core-all-linux/server/db/
