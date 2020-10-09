@@ -7,6 +7,8 @@ from grakn.client import GraknClient
 
 from .grakn_functions import load_entity_into_grakn
 from .grakn_functions import add_entities_into_grakn
+from .grakn_functions import load_relationship_into_grakn, add_relationship_data
+
 
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
@@ -19,6 +21,7 @@ class CodexKg:
         self.uri = uri
         self.creds = credentials
         self.entity_map = {}
+        self.rel_map = {}
 
     def create_db(self, db_name: str):
         logging.info("creating new keyspace " + db_name)
@@ -66,9 +69,58 @@ class CodexKg:
             logging.error(error)
             return -1
 
+    def create_relationship(self, csv_path: str, rel_name: str, rel1: str, rel2: str):
+        logging.info("Creating relationship from " + csv_path)
+        try:
+            df = pd.read_csv(csv_path)
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                with client.session(keyspace=self.keyspace) as session:
+                    self.rel_map[
+                        rel_name
+                    ] = {}  # TODO do we want to check if key exisits?
+
+                    cols = df.columns
+                    attrs = cols[2:]
+
+                    self.rel_map[rel_name]["rel1"] = {}
+                    self.rel_map[rel_name]["rel1"]["role"] = cols[0]
+                    self.rel_map[rel_name]["rel1"]["entity"] = rel1
+                    ent_key = self.entity_map[rel1]["key"]
+                    self.rel_map[rel_name]["rel1"]["key"] = ent_key
+
+                    if self.rel_map[rel_name]["rel1"]["key"] is not None:
+                        self.rel_map[rel_name]["rel1"]["key_type"] = self.entity_map[
+                            rel1
+                        ]["cols"][ent_key]["type"]
+                    else:
+                        self.rel_map[rel_name]["rel1"]["key_type"] = None
+
+                    self.rel_map[rel_name]["rel2"] = {}
+                    self.rel_map[rel_name]["rel2"]["role"] = cols[1]
+                    self.rel_map[rel_name]["rel2"]["entity"] = rel2
+                    ent_key = self.entity_map[rel1]["key"]
+                    self.rel_map[rel_name]["rel2"]["key"] = ent_key
+
+                    if self.rel_map[rel_name]["rel2"]["key"] is not None:
+                        self.rel_map[rel_name]["rel2"]["key_type"] = self.entity_map[
+                            rel2
+                        ]["cols"][ent_key]["type"]
+                    else:
+                        self.rel_map[rel_name]["rel2"]["key_type"] = None
+
+                    self.rel_map[rel_name]["cols"] = load_relationship_into_grakn(
+                        session, df, attrs, rel_name, self.rel_map[rel_name]
+                    )
+
+                    logging.info(self.rel_map)
+                    add_relationship_data(df, self.rel_map[rel_name], rel_name, session)
+                    return 0
+        except Exception as error:
+            logging.error(error)
+            return -1
+
     # TODO
+    # load a keyspace
     # get entites/rels
-    # create rels
     # create rules
-    # add ents/rels
     # query/compute

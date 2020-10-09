@@ -39,7 +39,170 @@ def check_types(df: pd.DataFrame, col: str):
     return ValueType.DATETIME
 
 
-def entity_query(df: pd.DataFrame, entity_name: str, entity_key=None):
+def create_relationship_query(session, entity_map: dict, rel_name: str, rel_map: dict):
+
+    graql_insert_query = "define " + rel_name + " sub relation, "
+
+    # relates 1
+    graql_insert_query += "relates " + rel_map["rel1"]["role"] + ", "
+    # relates2
+    graql_insert_query += "relates " + rel_map["rel2"]["role"] + ", "
+
+    # add our custom attr
+    # graql_insert_query += 'has codex_details'
+
+    # check if attrs
+    attr_length = len(entity_map.keys())
+    # if attr_length == 0:
+    #     graql_insert_query += ";"
+    #     return graql_insert_query
+
+    # #check if blank attr
+    # graql_insert_query += ","
+    attr_counter = 1
+
+    for attr in entity_map:
+
+        graql_insert_query += "has " + str(attr)
+
+        # check if last
+        if attr_counter == attr_length:
+            graql_insert_query += ";"
+        else:
+            graql_insert_query += ", "
+        attr_counter += 1
+
+    return graql_insert_query
+
+
+# rel1: "Company"
+# rel1_name: "produces"
+# rel2: "Sample"
+# rel2_name: "produced"
+# rel_name: "Productize"
+# [{"rel1_name":"produces","rel1":"Company","rel1_value":"Company A"}]
+
+
+def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict):
+
+    rel1_role = rel_map["rel1"]["role"]
+    rel2_role = rel_map["rel2"]["role"]
+
+    graql_insert_query = (
+        "match $"
+        + str(rel_map["rel1"]["role"])
+        + " isa "
+        + str(rel_map["rel1"]["entity"])
+    )
+
+    # check key type
+    if rel_map["rel1"]["key_type"] == ValueType.STRING:
+        graql_insert_query += (
+            ", has " + str(rel_map["rel1"]["key"]) + ' "' + str(row[rel1_role]) + '";'
+        )
+
+    # TODO what is query if not a string?
+
+    # rel 2
+    graql_insert_query += (
+        "$" + str(rel_map["rel2"]["role"]) + " isa " + str(rel_map["rel2"]["entity"])
+    )
+
+    # check key type
+    if rel_map["rel2"]["key_type"] == ValueType.STRING:
+        graql_insert_query += (
+            ", has " + str(rel_map["rel2"]["key"]) + ' "' + str(row[rel2_role]) + '";'
+        )
+
+    # the insert statement
+    graql_insert_query += (
+        " insert $"
+        + str(rel_name)
+        + "("
+        + str(rel_map["rel1"]["role"])
+        + ": $"
+        + str(rel_map["rel1"]["role"])
+        + ", "
+        + str(rel_map["rel2"]["role"])
+        + ": $"
+        + str(rel_map["rel2"]["role"])
+        + ") isa "
+        + str(rel_name)
+        + "; "
+    )
+
+    # create codex details
+    codex_obj = {}
+    codex_obj["rel1_key"] = rel_map["rel1"]["key"]
+    codex_obj["rel1_value"] = row[rel1_role]
+    codex_obj["rel1_role"] = rel_map["rel1"]["role"]
+    codex_obj["rel2_key"] = rel_map["rel2"]["key"]
+    codex_obj["rel2_value"] = row[rel2_role]
+    codex_obj["rel2_role"] = rel_map["rel2"]["role"]
+
+    codex_string = json.dumps(codex_obj)
+    graql_insert_query += (
+        "$" + str(rel_name) + " has codex_details '" + codex_string + "'"
+    )
+
+    row_attrs = list(rel_map["cols"].keys())
+    logging.info(row_attrs)
+    row_attrs.remove("codex_details")
+    logging.info(row_attrs)
+
+    attr_len = len(row_attrs)
+    attr_counter = 1
+
+    if attr_len > 0:
+        graql_insert_query += ", "
+
+        for attr in row_attrs:
+
+            if rel_map["cols"][attr]["type"] == ValueType.STRING:
+                graql_insert_query += (
+                    "has " + str(attr) + ' "' + str(sanitize_text(row[attr])) + '"'
+                )
+            else:
+                graql_insert_query += "has " + str(attr) + " " + str(row[attr])
+
+            # check if last
+            if attr_counter == attr_len:
+                graql_insert_query += ";"
+            else:
+                graql_insert_query += ", "
+            attr_counter += 1
+    else:
+        graql_insert_query += ";"
+
+    # do insert here
+    with session.transaction().write() as transaction:
+        logging.info("Executing Graql Query: " + graql_insert_query)
+        transaction.query(graql_insert_query)
+        transaction.commit()
+
+
+def add_relationship_data(df: pd.DataFrame, rel_map: dict, rel_name: str, session):
+    logging.info("Starting add relationships")
+
+    # for each row in csv, add relationship
+    df.apply(lambda row: commit_relationship(row, session, rel_name, rel_map), axis=1)
+
+
+def add_relationship_to_entities(rel_map):
+    graql_insert_query = (
+        "define "
+        + rel_map["rel1"]["entity"]
+        + " plays "
+        + rel_map["rel1"]["role"]
+        + "; "
+    )
+    graql_insert_query += (
+        rel_map["rel2"]["entity"] + " plays " + rel_map["rel2"]["role"] + ";"
+    )
+    return graql_insert_query
+
+
+def create_entity_query(df: pd.DataFrame, entity_name: str, entity_key=None):
     graql_insert_query = "define " + entity_name + " sub entity"
 
     # check if attrs
@@ -51,12 +214,15 @@ def entity_query(df: pd.DataFrame, entity_name: str, entity_key=None):
     graql_insert_query += ","
     attr_counter = 1
 
+    added_key = False
+
     for attr in df.columns:
 
         # check if attr is key
-        if entity_key is not None:
+        if entity_key is not None and not added_key:
             if str(attr) == entity_key:
                 graql_insert_query += "key " + str(attr)
+                added_key = True
         else:
             graql_insert_query += "has " + str(attr)
 
@@ -137,7 +303,50 @@ def load_entity_into_grakn(
 
     # make entity
     with session.transaction().write() as transaction:
-        graql_insert_query = entity_query(df, entity_name, entity_key)
+        graql_insert_query = create_entity_query(df, entity_name, entity_key)
+        print("Executing Graql Query: " + graql_insert_query)
+        transaction.query(graql_insert_query)
+        transaction.commit()
+
+    return entity_map
+
+
+def load_relationship_into_grakn(
+    session, df: pd.DataFrame, cols: list, rel_name: str, rel_map: dict
+):
+    # sample entity
+    entity_map = {}
+
+    # our hardcoded attribute
+    entity_map["codex_details"] = ValueType.STRING
+
+    with session.transaction().write() as transaction:
+        transaction.put_attribute_type("codex_details", ValueType.STRING)
+        transaction.commit()
+
+    # make attrs
+    for col in cols:
+        with session.transaction().write() as transaction:
+            logging.info(col)
+            entity_map[col] = {}
+            current_type = check_types(df, col)
+            entity_map[col]["type"] = current_type
+
+            transaction.put_attribute_type(col, current_type)
+            transaction.commit()
+
+    # make relationships
+    with session.transaction().write() as transaction:
+        graql_insert_query = create_relationship_query(
+            session, entity_map, rel_name, rel_map
+        )
+        print("Executing Graql Query: " + graql_insert_query)
+        transaction.query(graql_insert_query)
+        transaction.commit()
+
+    # update entities with relationship
+    with session.transaction().write() as transaction:
+        graql_insert_query = add_relationship_to_entities(rel_map)
         print("Executing Graql Query: " + graql_insert_query)
         transaction.query(graql_insert_query)
         transaction.commit()
