@@ -7,3 +7,9 @@ services:
       - "48555:48555"
     volumes:
       - ./data/:/grakn-core-all-linux/server/db/
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data/:/data

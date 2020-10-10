@@ -1,3 +1,4 @@
 grakn-client
 pandas
 streamlit
+redis

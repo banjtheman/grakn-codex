@@ -21,6 +21,40 @@ logging.basicConfig(
 # data_type_match["boolean"] = DataType.BOOLEAN
 
 
+def turn_value_type(val):
+
+    if val == ValueType.STRING:
+        return "string"
+
+    if val == ValueType.DOUBLE:
+        return "double"
+
+    if val == ValueType.LONG:
+        return "long"
+
+    if val == ValueType.BOOLEAN:
+        return "bool"
+
+    return "date"
+
+
+def rev_value_type(val):
+
+    if val == "string":
+        return ValueType.STRING
+
+    if val == "double":
+        return ValueType.DOUBLE
+
+    if val == "long":
+        return ValueType.LONG
+
+    if val == "bool":
+        return ValueType.BOOLEAN
+
+    return ValueType.DATETIME
+
+
 def check_types(df: pd.DataFrame, col: str):
 
     if is_string_dtype(df[col]):
@@ -96,7 +130,7 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict):
     )
 
     # check key type
-    if rel_map["rel1"]["key_type"] == ValueType.STRING:
+    if rel_map["rel1"]["key_type"] == "string":
         graql_insert_query += (
             ", has " + str(rel_map["rel1"]["key"]) + ' "' + str(row[rel1_role]) + '";'
         )
@@ -109,7 +143,7 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict):
     )
 
     # check key type
-    if rel_map["rel2"]["key_type"] == ValueType.STRING:
+    if rel_map["rel2"]["key_type"] == "string":
         graql_insert_query += (
             ", has " + str(rel_map["rel2"]["key"]) + ' "' + str(row[rel2_role]) + '";'
         )
@@ -158,7 +192,7 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict):
 
         for attr in row_attrs:
 
-            if rel_map["cols"][attr]["type"] == ValueType.STRING:
+            if rel_map["cols"][attr]["type"] == "string":
                 graql_insert_query += (
                     "has " + str(attr) + ' "' + str(sanitize_text(row[attr])) + '"'
                 )
@@ -252,7 +286,7 @@ def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict):
 
     for col in current_ent["cols"].keys():
 
-        if current_ent["cols"][col]["type"] == ValueType.STRING:
+        if current_ent["cols"][col]["type"] == "string":
             graql_insert_query += (
                 "has " + str(col) + ' "' + str(sanitize_text(row[col])) + '"'
             )
@@ -284,6 +318,17 @@ def add_entities_into_grakn(
     df.apply(lambda row: commit_entity(row, session, entity_name, entity_map), axis=1)
 
 
+def get_all_entities(session):
+
+    with session.transaction().write() as transaction:
+        entity_type = transaction.get_schema_concept("entity")
+        all_entities_iter = entity_type.instances()
+        someEntity = next(all_entities_iter)
+
+        for ent in all_entities_iter:
+            print(ent.type().label())
+
+
 def load_entity_into_grakn(
     session, df: pd.DataFrame, entity_name: str, entity_key=None
 ):
@@ -296,7 +341,7 @@ def load_entity_into_grakn(
             logging.info(col)
             entity_map[col] = {}
             current_type = check_types(df, col)
-            entity_map[col]["type"] = current_type
+            entity_map[col]["type"] = turn_value_type(current_type)
 
             transaction.put_attribute_type(col, current_type)
             transaction.commit()
@@ -318,7 +363,7 @@ def load_relationship_into_grakn(
     entity_map = {}
 
     # our hardcoded attribute
-    entity_map["codex_details"] = ValueType.STRING
+    entity_map["codex_details"] = "string"
 
     with session.transaction().write() as transaction:
         transaction.put_attribute_type("codex_details", ValueType.STRING)
@@ -330,7 +375,7 @@ def load_relationship_into_grakn(
             logging.info(col)
             entity_map[col] = {}
             current_type = check_types(df, col)
-            entity_map[col]["type"] = current_type
+            entity_map[col]["type"] = turn_value_type(current_type)
 
             transaction.put_attribute_type(col, current_type)
             transaction.commit()

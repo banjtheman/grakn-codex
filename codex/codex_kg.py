@@ -1,13 +1,19 @@
 import logging
+import json
 from typing import Any, Dict, List
 
 import pandas as pd
 from grakn.client import GraknClient
+import redis
 
 
 from .grakn_functions import load_entity_into_grakn
 from .grakn_functions import add_entities_into_grakn
-from .grakn_functions import load_relationship_into_grakn, add_relationship_data
+from .grakn_functions import (
+    load_relationship_into_grakn,
+    add_relationship_data,
+    get_all_entities,
+)
 
 
 logging.basicConfig(
@@ -16,12 +22,45 @@ logging.basicConfig(
 
 
 class CodexKg:
-    def __init__(self, uri="localhost:48555", credentials=None):
+    def __init__(
+        self,
+        uri="localhost:48555",
+        credentials=None,
+        redis_host="localhost",
+        redis_port=6379,
+        redis_db=0,
+        redis_password=None,
+    ):
         logging.info("created new CodexKg")
         self.uri = uri
         self.creds = credentials
         self.entity_map = {}
         self.rel_map = {}
+        self.rkey = ""
+        # TODO add rules map
+
+        # connect to redis
+        try:
+            self.cache = redis.Redis(
+                host=redis_host, port=redis_port, db=redis_db, password=redis_password
+            )
+        except Exception as error:
+            logging.error("Couldnt connect to cache:" + str(error))
+            raise
+
+    # TODO can we get this data without having to rely on redis?
+    def get_entites_grakn(self):
+        logging.info("get all entites")
+
+        try:
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                with client.session(keyspace=self.keyspace) as session:
+                    get_all_entities(session)
+
+                    return 0
+        except Exception as error:
+            logging.error(error)
+            return -1
 
     def create_db(self, db_name: str):
         logging.info("creating new keyspace " + db_name)
@@ -31,6 +70,28 @@ class CodexKg:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
                 client.session(keyspace=db_name)
                 self.keyspace = db_name
+
+                # check if keyspace exists in redis
+                key_prefix = "grakn_keyspace_"
+                rkey = key_prefix + db_name
+                self.rkey = rkey
+
+                if self.cache.exists(rkey):
+                    # load data
+                    logging.info("Loading data from redis")
+
+                    curr_keyspace = json.loads(self.cache.get(self.rkey))
+                    self.entity_map = curr_keyspace["entity_map"]
+                    self.rel_map = curr_keyspace["rel_map"]
+
+                else:
+                    logging.info("Creating new keypsace in redis")
+                    blank_keyspace = {}
+                    blank_keyspace["entity_map"] = {}
+                    blank_keyspace["rel_map"] = {}
+                    # TODO add rules map
+                    self.cache.set(rkey, json.dumps(blank_keyspace))
+
                 return 0
         except Exception as error:
             logging.error(error)
@@ -43,16 +104,22 @@ class CodexKg:
         try:
             with GraknClient(uri=self.uri) as client:
                 client.keyspaces().delete(self.keyspace)
+
+                # delete redis key as well
+                self.cache.delete(self.rkey)
+                self.entity_map = {}
+                self.rel_map = {}
+
                 return 0
         except Exception as error:
             logging.error(error)
             return -1
 
-    def create_entity(self, csv_path: str, entity_name: str, entity_key=None):
-        logging.info("Creating entity from " + csv_path)
+    def create_entity(self, df: pd.DataFrame, entity_name: str, entity_key=None):
+        logging.info("Creating entity")
 
         try:
-            df = pd.read_csv(csv_path)
+            # df = pd.read_csv(csv_path)
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
                 with client.session(keyspace=self.keyspace) as session:
                     self.entity_map[
@@ -64,15 +131,26 @@ class CodexKg:
                     )
                     logging.info(self.entity_map)
                     add_entities_into_grakn(session, df, entity_name, self.entity_map)
+
+                    # add to redis
+                    # get current key space
+                    curr_keyspace = json.loads(self.cache.get(self.rkey))
+                    # update entity map
+                    curr_keyspace["entity_map"] = self.entity_map
+                    # update redis
+                    self.cache.set(self.rkey, json.dumps(curr_keyspace))
+
                     return 0
         except Exception as error:
             logging.error(error)
             return -1
 
-    def create_relationship(self, csv_path: str, rel_name: str, rel1: str, rel2: str):
-        logging.info("Creating relationship from " + csv_path)
+    def create_relationship(
+        self, df: pd.DataFrame, rel_name: str, rel1: str, rel2: str
+    ):
+        logging.info("Creating relationship")
         try:
-            df = pd.read_csv(csv_path)
+            # df = pd.read_csv(csv_path)
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
                 with client.session(keyspace=self.keyspace) as session:
                     self.rel_map[
@@ -114,13 +192,22 @@ class CodexKg:
 
                     logging.info(self.rel_map)
                     add_relationship_data(df, self.rel_map[rel_name], rel_name, session)
+
+                    # get current key space
+                    curr_keyspace = json.loads(self.cache.get(self.rkey))
+                    # update entity map
+                    curr_keyspace["rel_map"] = self.rel_map
+                    # update redis
+                    self.cache.set(self.rkey, json.dumps(curr_keyspace))
+
                     return 0
         except Exception as error:
             logging.error(error)
             return -1
 
     # TODO
-    # load a keyspace
-    # get entites/rels
-    # create rules
+    # streamlit example
     # query/compute
+    # create rules
+    # show graph?
+    # get entites/rels?
