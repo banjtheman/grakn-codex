@@ -363,7 +363,8 @@ def load_relationship_into_grakn(
     entity_map = {}
 
     # our hardcoded attribute
-    entity_map["codex_details"] = "string"
+    entity_map["codex_details"] = {}
+    entity_map["codex_details"]["type"] = "string"
 
     with session.transaction().write() as transaction:
         transaction.put_attribute_type("codex_details", ValueType.STRING)

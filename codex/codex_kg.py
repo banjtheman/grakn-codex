@@ -129,6 +129,11 @@ class CodexKg:
                     self.entity_map[entity_name]["cols"] = load_entity_into_grakn(
                         session, df, entity_name, entity_key
                     )
+
+                    # {Productize} = {plays : produces, with_ent: Company}
+                    # create rels array here rels [  {plays: produces, in_rel: Productize. with_ent: Company}
+                    self.entity_map[entity_name]["rels"] = {}
+
                     logging.info(self.entity_map)
                     add_entities_into_grakn(session, df, entity_name, self.entity_map)
 
@@ -190,13 +195,24 @@ class CodexKg:
                         session, df, attrs, rel_name, self.rel_map[rel_name]
                     )
 
+                    # {Productize} = {plays : produces, with_ent: Company}
+                    self.entity_map[rel1]["rels"][rel_name] = {}
+                    self.entity_map[rel1]["rels"][rel_name]["plays"] = cols[0]
+                    self.entity_map[rel1]["rels"][rel_name]["with_ent"] = rel2
+
+                    # {Productize} = {plays : produces, with_ent: Company}
+                    self.entity_map[rel2]["rels"][rel_name] = {}
+                    self.entity_map[rel2]["rels"][rel_name]["plays"] = cols[1]
+                    self.entity_map[rel2]["rels"][rel_name]["with_ent"] = rel1
+
                     logging.info(self.rel_map)
                     add_relationship_data(df, self.rel_map[rel_name], rel_name, session)
 
                     # get current key space
                     curr_keyspace = json.loads(self.cache.get(self.rkey))
-                    # update entity map
+                    # update both maps
                     curr_keyspace["rel_map"] = self.rel_map
+                    curr_keyspace["entity_map"] = self.entity_map
                     # update redis
                     self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
