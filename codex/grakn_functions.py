@@ -109,6 +109,105 @@ def create_relationship_query(session, entity_map: dict, rel_name: str, rel_map:
     return graql_insert_query
 
 
+def find_cond_checker(attr: dict) -> str:
+
+    query_check_type = attr["attr_type"]
+    cond_type = attr["cond"]["selected_cond"]
+    cond_value = attr["cond"]["cond_value"]
+    curr_attr = attr["attribute"]
+
+    grakn_query = ""
+
+    # contain statements go at end?
+    # match $Company isa Company, has name $name , has profit > 300.0;{ $name contains "Two ";};get; offset 0; limit 30;
+    contain_statements = []
+
+    if query_check_type:
+        # check if string
+        if query_check_type == "string":
+
+            # now need to check for each condtion
+
+            # match $Company isa Company, has name "Two"
+            if cond_type == "Equals":
+                grakn_query += ' "' + cond_value + '"'
+
+            # match $Company isa Company, has name $name; { $name contains "Two";}; get; offset 0; limit 30;
+            if cond_type == "Contains":
+                grakn_query += f" ${curr_attr}"
+                contain_string = f'{{ ${curr_attr} contains "{cond_value}";}}'
+                contain_statements.append(contain_string)
+
+        if query_check_type == "double" or query_check_type == "long":
+            if cond_type == "Equals":
+                grakn_query += f" {cond_value}"
+            if cond_type == "Greater Than":
+                grakn_query += f" > {cond_value}"
+            if cond_type == "Less Than":
+                grakn_query += f" < {cond_value}"
+
+    return grakn_query, contain_statements
+
+
+def find_query(session, query_object: dict) -> str:
+    print("ok")
+
+    # for each concept make a query
+    grakn_query = ""
+
+    concepts_len = len(query_object.concepts)
+    concept_counter = 1
+    contain_statements = []
+    for concept in query_object.concepts:
+
+        grakn_query += f"match ${concept['concept']} isa {concept['concept']}"
+
+        for attr in concept["attrs"]:
+
+            if "rel_ent" in attr:
+                pass
+            else:
+                grakn_query += f", has {attr['attribute']}"
+
+            grakn_query_cond, contains_array = find_cond_checker(attr)
+
+            grakn_query += grakn_query_cond
+            contain_statements.extend(contains_array)
+
+        if concept_counter == concepts_len:
+
+            # check contain statements
+
+            for cond in contain_statements:
+                grakn_query += f";{cond}"
+
+            grakn_query += ";get;"
+        else:
+            grakn_query += " "
+
+        concept_counter += 1
+
+    logging.info("Here is the graql")
+    logging.info(grakn_query)
+
+    return grakn_query
+
+    # match $Company isa Company, has name "Two Six Labs";get;
+    # match $Company isa Company,has name "Two Six Labs"; get; offset 0; limit 30;
+    # match $x isa Company,has name "Two Six Labs"; get; offset 0; limit 30;
+
+    # match $Company isa Company, has name $name; { $name contains "Two";}; get; offset 0; limit 30;
+    # match $Company isa Company, has name $name; { $name contains "Two";}, has profit > 300.0;get;
+
+
+def query_grakn(session, query_object):
+
+    logging.info(f"{query_object}")
+
+    if query_object.action == "Find":
+        find_query(session, query_object)
+
+
 # rel1: "Company"
 # rel1_name: "produces"
 # rel2: "Sample"

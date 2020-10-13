@@ -13,9 +13,13 @@ logging.basicConfig(
 
 
 class CodexQueryFind:
+
+
+    action = "Find"
+
+
     def __init__(
         self,
-        action: str,
         concepts: dict,
         # atrr_type: str,
         # attribute: str,
@@ -25,7 +29,6 @@ class CodexQueryFind:
     ) -> None:
         logging.info("Created codex query find")
 
-        self.action = action
         self.concepts = concepts
         self.query_string = query_string
 

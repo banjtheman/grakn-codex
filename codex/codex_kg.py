@@ -13,6 +13,7 @@ from .grakn_functions import (
     load_relationship_into_grakn,
     add_relationship_data,
     get_all_entities,
+    query_grakn
 )
 
 from .codex_query import CodexQueryFind
@@ -222,19 +223,17 @@ class CodexKg:
             logging.error(error)
             return -1
 
-
-    def query(self,query_object: CodexQueryFind):
+    def query(self, query_object: CodexQueryFind):
 
         logging.info(f"{query_object}")
         try:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
                 with client.session(keyspace=self.keyspace) as session:
-                    print("hello")
+                    query_grakn(session,query_object)
 
         except Exception as error:
             logging.error(error)
             return -1
-
 
     # TODO
     # streamlit example

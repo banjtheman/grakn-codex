@@ -140,7 +140,7 @@ def main_menu(codexkg, keyspace):
         codexkg.delete_db(keyspace)
 
 
-def cond_setter(attr_type:str, attr_name:str, concept:str) -> str:
+def cond_setter(attr_type: str, attr_name: str, concept: str) -> str:
 
     cond_json = {}
 
@@ -210,6 +210,8 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
 
     for selected_attr in selected_attrs:
 
+        attr_json = {}
+
         if selected_attr in attr_list:
             attr_string = " that have a " + selected_attr
 
@@ -226,6 +228,10 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
             attr_string = " that " + selected_attr
             st.subheader(f"Concepts for {selected_attr}")
             selected_ent2 = st.selectbox("Select Entity", plays_map[selected_attr])
+
+            attr_json["rel_ent"] = selected_ent2
+            attr_json["rel_attr"] = selected_attr
+
             attr_string += " " + selected_ent2
             attrs2 = codexkg.entity_map[selected_ent2]["cols"]
             attr_list2 = list(attrs2.keys())
@@ -236,7 +242,10 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
 
             cond_json = cond_setter(attr_type, selected_attr, selected_ent2)
 
-        attr_json = {}
+
+
+
+        
         attr_json["cond"] = cond_json
         attr_json["attr_type"] = attr_type
         attr_json["attribute"] = selected_attr
@@ -246,8 +255,7 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
     return attr_obj_list
 
 
-
-def query_string_find_maker(concept: str, attr_obj_list:dict) -> str:
+def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
 
     query_string = f"Find {plural(concept)}"
 
@@ -262,11 +270,10 @@ def query_string_find_maker(concept: str, attr_obj_list:dict) -> str:
             query_string += " and "
 
         attr_counter += 1
-    
+
     query_string += ". "
 
     return query_string
-    
 
 
 def codex_reasoner(codexkg):
@@ -299,7 +306,7 @@ def codex_reasoner(codexkg):
         else:
             is_ent = False
             concept_type = "Relationship"
-        
+
         st.header(f"{concept} Query Builder")
 
         attr_obj_list = attr_setter(codexkg, concept, is_ent)
@@ -308,25 +315,25 @@ def codex_reasoner(codexkg):
         concept_json["concept"] = concept
         concept_json["concept_type"] = concept_type
         concept_json["attrs"] = attr_obj_list
-        concept_json["query_string"] = query_string_find_maker(concept,attr_obj_list)
+        concept_json["query_string"] = query_string_find_maker(concept, attr_obj_list)
         codex_query_list.append(concept_json)
-
-
 
         # st.write(attr_obj_list)
 
     # TODO make a codex_query object
     # TODO add mulipte queries
     try:
-       query_text = ""
-       for concept_obj in codex_query_list:
-           query_text += concept_obj["query_string"]
+        query_text = ""
+        for concept_obj in codex_query_list:
+            query_text += concept_obj["query_string"]
 
     except:
         query_text = "Enter Query:"
 
     # make a codex_query object here
-    curr_query = CodexQueryFind(action=action,concepts=codex_query_list, query_string=query_text)
+    curr_query = CodexQueryFind(
+        concepts=codex_query_list, query_string=query_text
+    )
 
     # st.write(str(curr_query))
 
