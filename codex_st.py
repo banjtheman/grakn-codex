@@ -7,7 +7,7 @@ import streamlit as st
 
 
 from codex import CodexKg
-
+from codex import CodexQueryFind
 
 # p = inflect.engine()
 
@@ -140,30 +140,40 @@ def main_menu(codexkg, keyspace):
         codexkg.delete_db(keyspace)
 
 
-def codex_reasoner(codexkg):
+def cond_setter(attr_type:str, attr_name:str, concept:str) -> str:
 
-    st.header("Reasoner")
-    st.subheader("Ask and you shall receive")
+    cond_json = {}
 
-    st.write(codexkg.entity_map)
-    st.write(codexkg.rel_map)
+    st.subheader(f"{concept}-{attr_name}")
 
-    # The actions supported
-    actions = ["Find", "Compute", "Cluster"]
+    if attr_type == "string":
+        conds = ["Equals", "Contains"]
+        selected_cond = st.selectbox(
+            "Select Condition", conds, key=f"{concept}-{attr_name} cond checker"
+        )
+        cond_value = st.text_input(
+            "Condition Value", key=f"{concept}-{attr_name} cond value"
+        )
+        cond_string = " that " + selected_cond + " " + cond_value
 
-    action = st.selectbox("Select Action", actions)
+    if attr_type == "long" or attr_type == "double":
+        conds = ["Equals", "Less Than", "Greater Than"]
+        selected_cond = st.selectbox(
+            "Select Condition", conds, key=f"{concept}-{attr_name} cond checker"
+        )
+        cond_value = st.number_input(
+            "Condition Value", key=f"{concept}-{attr_name} cond value"
+        )
+        cond_string = f" that {selected_cond} {cond_value}"
 
-    ents = list(codexkg.entity_map.keys())
-    rels = list(codexkg.rel_map.keys())
+    cond_json["selected_cond"] = selected_cond
+    cond_json["cond_value"] = cond_value
+    cond_json["cond_string"] = cond_string
 
-    ents_rels = ents + rels
+    return cond_json
 
-    concept = st.selectbox("Select Concept", ents_rels)
 
-    if concept in ents:
-        is_ent = True
-    else:
-        is_ent = False
+def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
 
     # Get Values from entites
     plays_map = {}
@@ -194,52 +204,138 @@ def codex_reasoner(codexkg):
         attr_list_comp = attr_list
 
     # this is the attribute for the entity i.e name
-    selected_attr = st.selectbox("Select Attribute", attr_list_comp)
+    selected_attrs = st.multiselect("Select Attributes", attr_list_comp)
 
-    if selected_attr in attr_list:
-        attr_string = " that have a " + selected_attr
+    attr_obj_list = []
 
-        if is_ent:
-            attr_type = codexkg.entity_map[concept]["cols"][selected_attr]["type"]
+    for selected_attr in selected_attrs:
+
+        if selected_attr in attr_list:
+            attr_string = " that have a " + selected_attr
+
+            if is_ent:
+                attr_type = codexkg.entity_map[concept]["cols"][selected_attr]["type"]
+            else:
+                attr_type = codexkg.rel_map[concept]["cols"][selected_attr]["type"]
+
+            # TODO can we make this a function
+            # check condtion type
+            cond_json = cond_setter(attr_type, selected_attr, concept)
+
         else:
-            attr_type = codexkg.rel_map[concept]["cols"][selected_attr]["type"]
+            attr_string = " that " + selected_attr
+            st.subheader(f"Concepts for {selected_attr}")
+            selected_ent2 = st.selectbox("Select Entity", plays_map[selected_attr])
+            attr_string += " " + selected_ent2
+            attrs2 = codexkg.entity_map[selected_ent2]["cols"]
+            attr_list2 = list(attrs2.keys())
+            selected_attr = st.selectbox("Select Attribute", attr_list2)
+            attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr]["type"]
 
-        #TODO can we make this a function
-        # check condtion type
-        if attr_type == "string":
-            conds = ["Equals", "Contains"]
-            selected_cond = st.selectbox("Select Condition", conds)
-            cond_value = st.text_input("Condition Value")
-            cond_string = " that " + selected_cond + " " + cond_value
+            attr_string += " that have a " + selected_attr
 
-    else:
-        attr_string = " that " + selected_attr
-        selected_ent2 = st.selectbox("Select Entity", plays_map[selected_attr])
-        attr_string += " " + selected_ent2
-        attrs2 = codexkg.entity_map[selected_ent2]["cols"]
-        attr_list2 = list(attrs2.keys())
-        selected_attr = st.selectbox("Select Attribute", attr_list2)
-        attr_type2 = codexkg.entity_map[selected_ent2]["cols"][selected_attr]["type"]
+            cond_json = cond_setter(attr_type, selected_attr, selected_ent2)
 
-        attr_string += " that have a " + selected_attr
+        attr_json = {}
+        attr_json["cond"] = cond_json
+        attr_json["attr_type"] = attr_type
+        attr_json["attribute"] = selected_attr
+        attr_json["attr_string"] = attr_string
+        attr_obj_list.append(attr_json)
 
-        #TODO can we make this a function
-        # check condtion type
-        if attr_type2 == "string":
-            conds = ["Equals", "Contains"]
-            selected_cond = st.selectbox("Select Condition", conds)
-            cond_value = st.text_input("Condition Value")
-            cond_string = " that " + selected_cond + " " + cond_value
+    return attr_obj_list
 
-        # st.write(plays_map[selected_attr])
 
-    #TODO make a codex_query object
-    #TODO add mulipte queries
-    query_text = action + " " + plural(concept) + attr_string + cond_string
+
+def query_string_find_maker(concept: str, attr_obj_list:dict) -> str:
+
+    query_string = f"Find {plural(concept)}"
+
+    attr_len = len(attr_obj_list)
+    attr_counter = 1
+
+    for attr in attr_obj_list:
+
+        query_string += f"{attr['attr_string']}{attr['cond']['cond_string']}"
+
+        if not attr_counter == attr_len:
+            query_string += " and "
+
+        attr_counter += 1
+    
+    query_string += ". "
+
+    return query_string
+    
+
+
+def codex_reasoner(codexkg):
+
+    st.header("Reasoner")
+    st.subheader("Ask and you shall receive")
+
+    # st.write(codexkg.entity_map)
+    # st.write(codexkg.rel_map)
+
+    # The actions supported
+    actions = ["Find", "Compute", "Cluster"]
+
+    action = st.selectbox("Select Action", actions)
+
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+
+    ents_rels = ents + rels
+
+    concepts = st.multiselect("Select Concepts", ents_rels)
+
+    # concept_type = ""
+    codex_query_list = []
+    for concept in concepts:
+
+        if concept in ents:
+            is_ent = True
+            concept_type = "Entity"
+        else:
+            is_ent = False
+            concept_type = "Relationship"
+        
+        st.header(f"{concept} Query Builder")
+
+        attr_obj_list = attr_setter(codexkg, concept, is_ent)
+
+        concept_json = {}
+        concept_json["concept"] = concept
+        concept_json["concept_type"] = concept_type
+        concept_json["attrs"] = attr_obj_list
+        concept_json["query_string"] = query_string_find_maker(concept,attr_obj_list)
+        codex_query_list.append(concept_json)
+
+
+
+        # st.write(attr_obj_list)
+
+    # TODO make a codex_query object
+    # TODO add mulipte queries
+    try:
+       query_text = ""
+       for concept_obj in codex_query_list:
+           query_text += concept_obj["query_string"]
+
+    except:
+        query_text = "Enter Query:"
+
+    # make a codex_query object here
+    curr_query = CodexQueryFind(action=action,concepts=codex_query_list, query_string=query_text)
+
+    # st.write(str(curr_query))
+
+    st.write(codex_query_list)
 
     st.header(query_text)
     if st.button("Query"):
         st.success("Doing query")
+        codexkg.query(curr_query)
 
 
 def main():

@@ -15,6 +15,7 @@ from .grakn_functions import (
     get_all_entities,
 )
 
+from .codex_query import CodexQueryFind
 
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
@@ -220,6 +221,20 @@ class CodexKg:
         except Exception as error:
             logging.error(error)
             return -1
+
+
+    def query(self,query_object: CodexQueryFind):
+
+        logging.info(f"{query_object}")
+        try:
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                with client.session(keyspace=self.keyspace) as session:
+                    print("hello")
+
+        except Exception as error:
+            logging.error(error)
+            return -1
+
 
     # TODO
     # streamlit example

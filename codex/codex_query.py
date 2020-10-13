@@ -7,20 +7,33 @@ from grakn.client import GraknClient
 import redis
 
 
-
-
-
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
 )
 
 
-class CodexQuery:
+class CodexQueryFind:
+    def __init__(
+        self,
+        action: str,
+        concepts: dict,
+        # atrr_type: str,
+        # attribute: str,
+        # condition_type: str,
+        # condition_value: Any,
+        query_string: str,
+    ) -> None:
+        logging.info("Created codex query find")
 
-    def __init__(self,):
-        logging.info("Created codex query")
+        self.action = action
+        self.concepts = concepts
+        self.query_string = query_string
 
-    #spitballin
+    def __repr__(self):
+        return f"{self.query_string}"
+        # - Codex Query: action: {self.action} | concept: {self.concept} |  concept: {self.concept}
+
+    # spitballin
     # action
     # concept
     # concept_type
