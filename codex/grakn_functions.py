@@ -115,6 +115,7 @@ def find_cond_checker(attr: dict) -> str:
     cond_type = attr["cond"]["selected_cond"]
     cond_value = attr["cond"]["cond_value"]
     curr_attr = attr["attribute"]
+    attr_concept = attr["attr_concept"]
 
     grakn_query = ""
 
@@ -134,78 +135,182 @@ def find_cond_checker(attr: dict) -> str:
 
             # match $Company isa Company, has name $name; { $name contains "Two";}; get; offset 0; limit 30;
             if cond_type == "Contains":
-                grakn_query += f" ${curr_attr}"
-                contain_string = f'{{ ${curr_attr} contains "{cond_value}";}}'
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = (
+                    f'{{ ${attr_concept}_{curr_attr} contains "{cond_value}";}}'
+                )
                 contain_statements.append(contain_string)
 
-        if query_check_type == "double" or query_check_type == "long":
+        # if query_check_type == "double" or query_check_type == "long":
+        else:
             if cond_type == "Equals":
                 grakn_query += f" {cond_value}"
             if cond_type == "Greater Than":
                 grakn_query += f" > {cond_value}"
             if cond_type == "Less Than":
                 grakn_query += f" < {cond_value}"
-
     return grakn_query, contain_statements
 
 
+# Example Queries
+
+# match $x isa Company; $a isa Sample, has name "widget x";
+# (produces: $x, produced: $a) isa Productize;
+
+# match $Company isa Company, $Product isa Product has name "widget x";
+# (Product: $Product, Company: $Product) isa Productize;get;
+
+# match $Company isa Company, has name "Acme"; $Product isa Product, has name $name;(produces: $Company, produced: $Product) isa Productize;{ $name contains "widget x";};get;
+
+
 def find_query(session, query_object: dict) -> str:
-    print("ok")
 
     # for each concept make a query
-    grakn_query = ""
+    concepts = []
 
-    concepts_len = len(query_object.concepts)
-    concept_counter = 1
-    contain_statements = []
+    concept_queries = []
     for concept in query_object.concepts:
+        concepts.append(concept["concept"])
+        grakn_query = ""
+        contain_statements = []
+        rel_statements = []
 
+        attrs_len = len(concept["attrs"])
+        attr_counter = 1
         grakn_query += f"match ${concept['concept']} isa {concept['concept']}"
+
+        logging.info(grakn_query)
 
         for attr in concept["attrs"]:
 
             if "rel_ent" in attr:
-                pass
+                rel_query_string = f"; ${attr['rel_ent']} isa {attr['rel_ent']}"
+                rel_query_string += f", has {attr['attribute']}"
+
+                grakn_query_cond, contains_array = find_cond_checker(attr)
+                rel_query_string += grakn_query_cond
+                contain_statements.extend(contains_array)
+
+                rel_query_string += (
+                    ";(" + attr["rel_attr"] + ": $" + concept["concept"] + ", "
+                )
+                rel_query_string += (
+                    attr["rel_other"]
+                    + ": $"
+                    + attr["rel_ent"]
+                    + ") isa "
+                    + attr["rel_name"]
+                )
+                rel_statements.append(rel_query_string)
+
             else:
                 grakn_query += f", has {attr['attribute']}"
 
-            grakn_query_cond, contains_array = find_cond_checker(attr)
+                grakn_query_cond, contains_array = find_cond_checker(attr)
 
-            grakn_query += grakn_query_cond
-            contain_statements.extend(contains_array)
+                grakn_query += grakn_query_cond
+                contain_statements.extend(contains_array)
 
-        if concept_counter == concepts_len:
+            if attr_counter == attrs_len:
 
-            # check contain statements
+                # check rel statements
+                for rel in rel_statements:
+                    grakn_query += f"{rel}"
 
-            for cond in contain_statements:
-                grakn_query += f";{cond}"
+                # check conditions
+                for cond in contain_statements:
+                    grakn_query += f";{cond}"
 
-            grakn_query += ";get;"
-        else:
-            grakn_query += " "
+                grakn_query += ";get;"
+                concept_queries.append(grakn_query)
+                logging.info(grakn_query)
+            else:
+                grakn_query += " "
+
+            attr_counter += 1
+
+    logging.info("Here is the graql")
+    for query in concept_queries:
+        logging.info(query)
+
+    answers = run_query(session, concept_queries, concepts)
+    return answers
+
+
+def get_ent_obj(concept):
+
+    logging.info("checking concept")
+
+    ent_obj = {}
+    logging.info(dir(concept))
+    attr_iterator = concept.attributes()
+
+    for attr in attr_iterator:
+        logging.info(attr)
+        ent_obj[attr.type().label()] = attr.value()
+
+        # TODO any speical case for codex_details?
+
+    return ent_obj
+
+
+def run_query(session, queries, concepts):
+    ent_map = {}
+    concept_counter = 0
+    for query in queries:
+
+        curr_concept = concepts[concept_counter]
+
+        ent_map[curr_concept] = []
+
+        with session.transaction().read() as read_transaction:
+            answer_iterator = read_transaction.query(query)
+            for answer in answer_iterator:
+                try:
+                    # logging.info(answer.map())
+
+                    answer_concepts = list(answer.map().keys())
+
+                    # logging.info(answer_concepts)
+
+                    for key in answer_concepts:
+
+                        if key == curr_concept:
+
+                            ent_obj = {}
+                            curr_ent = answer.map().get(curr_concept)
+                            # logging.info(curr_ent.id)
+
+                            cur_val = read_transaction.get_concept(curr_ent.id)
+                            # logging.info(cur_val)
+
+                            attr_iterator = cur_val.attributes()
+
+                            for attr in attr_iterator:
+                                ent_obj[attr.type().label()] = attr.value()
+
+                            ent_map[curr_concept].append(ent_obj)
+
+                except Exception as error:
+                    logging.error(error)
 
         concept_counter += 1
 
-    logging.info("Here is the graql")
-    logging.info(grakn_query)
-
-    return grakn_query
-
-    # match $Company isa Company, has name "Two Six Labs";get;
-    # match $Company isa Company,has name "Two Six Labs"; get; offset 0; limit 30;
-    # match $x isa Company,has name "Two Six Labs"; get; offset 0; limit 30;
-
-    # match $Company isa Company, has name $name; { $name contains "Two";}; get; offset 0; limit 30;
-    # match $Company isa Company, has name $name; { $name contains "Two";}, has profit > 300.0;get;
+    logging.info(ent_map)
+    return ent_map
 
 
 def query_grakn(session, query_object):
 
     logging.info(f"{query_object}")
+    answers = {}
 
     if query_object.action == "Find":
-        find_query(session, query_object)
+        answers = find_query(session, query_object)
+
+        # TODO make df?
+
+    return answers
 
 
 # rel1: "Company"

@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 
 # import inflect
 import pandas as pd
@@ -140,7 +141,7 @@ def main_menu(codexkg, keyspace):
         codexkg.delete_db(keyspace)
 
 
-def cond_setter(attr_type: str, attr_name: str, concept: str) -> str:
+def cond_setter(attr_type: str, attr_name: str, concept: str, seed: str) -> str:
 
     cond_json = {}
 
@@ -149,20 +150,20 @@ def cond_setter(attr_type: str, attr_name: str, concept: str) -> str:
     if attr_type == "string":
         conds = ["Equals", "Contains"]
         selected_cond = st.selectbox(
-            "Select Condition", conds, key=f"{concept}-{attr_name} cond checker"
+            "Select Condition", conds, key=f"{concept}-{attr_name} {seed} cond checker"
         )
         cond_value = st.text_input(
-            "Condition Value", key=f"{concept}-{attr_name} cond value"
+            "Condition Value", key=f"{concept}-{attr_name} {seed} cond value"
         )
         cond_string = " that " + selected_cond + " " + cond_value
 
     if attr_type == "long" or attr_type == "double":
         conds = ["Equals", "Less Than", "Greater Than"]
         selected_cond = st.selectbox(
-            "Select Condition", conds, key=f"{concept}-{attr_name} cond checker"
+            "Select Condition", conds, key=f"{concept}-{attr_name} {seed} cond checker"
         )
         cond_value = st.number_input(
-            "Condition Value", key=f"{concept}-{attr_name} cond value"
+            "Condition Value", key=f"{concept}-{attr_name} {seed} cond value"
         )
         cond_string = f" that {selected_cond} {cond_value}"
 
@@ -222,7 +223,8 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
 
             # TODO can we make this a function
             # check condtion type
-            cond_json = cond_setter(attr_type, selected_attr, concept)
+            cond_json = cond_setter(attr_type, selected_attr, concept, "seed1")
+            attr_json["attr_concept"] = concept
 
         else:
             attr_string = " that " + selected_attr
@@ -231,7 +233,13 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
 
             attr_json["rel_ent"] = selected_ent2
             attr_json["rel_attr"] = selected_attr
+            rel_name = get_rel_name_from_ents(codexkg, concept, selected_ent2)
+            attr_json["rel_name"] = rel_name
+            attr_json["rel_other"] = codexkg.entity_map[selected_ent2]["rels"][
+                rel_name
+            ]["plays"]
 
+            attr_json["attr_concept"] = selected_ent2
             attr_string += " " + selected_ent2
             attrs2 = codexkg.entity_map[selected_ent2]["cols"]
             attr_list2 = list(attrs2.keys())
@@ -240,16 +248,13 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
 
             attr_string += " that have a " + selected_attr
 
-            cond_json = cond_setter(attr_type, selected_attr, selected_ent2)
+            cond_json = cond_setter(attr_type, selected_attr, selected_ent2, "seed2")
 
-
-
-
-        
         attr_json["cond"] = cond_json
         attr_json["attr_type"] = attr_type
         attr_json["attribute"] = selected_attr
         attr_json["attr_string"] = attr_string
+
         attr_obj_list.append(attr_json)
 
     return attr_obj_list
@@ -274,6 +279,23 @@ def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
     query_string += ". "
 
     return query_string
+
+
+def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
+
+    rels = list(codexkg.rel_map.keys())
+    rel_name = ""
+
+    for rel in rels:
+
+        check1 = codexkg.rel_map[rel]["rel1"]["entity"]
+        check2 = codexkg.rel_map[rel]["rel2"]["entity"]
+
+        if rel1 == check1 or rel1 == check2:
+            if rel2 == check1 or rel2 == check2:
+                rel_name = rel
+
+    return rel_name
 
 
 def codex_reasoner(codexkg):
@@ -331,9 +353,7 @@ def codex_reasoner(codexkg):
         query_text = "Enter Query:"
 
     # make a codex_query object here
-    curr_query = CodexQueryFind(
-        concepts=codex_query_list, query_string=query_text
-    )
+    curr_query = CodexQueryFind(concepts=codex_query_list, query_string=query_text)
 
     # st.write(str(curr_query))
 
@@ -342,7 +362,8 @@ def codex_reasoner(codexkg):
     st.header(query_text)
     if st.button("Query"):
         st.success("Doing query")
-        codexkg.query(curr_query)
+        answers = codexkg.query(curr_query)
+        st.write(answers)
 
 
 def main():
