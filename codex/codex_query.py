@@ -6,17 +6,33 @@ import pandas as pd
 from grakn.client import GraknClient
 import redis
 
+from abc import ABC, abstractmethod
+
 
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
 )
 
 
-class CodexQueryFind:
+class CodexQuery(ABC):
 
+    action = "CodexQuery"
+
+    def __init__(self):
+        """
+        Purpose:
+            Init CodexQuery class
+        Args:
+            N/A
+        Returns:
+            N/A
+        """
+        pass
+
+
+class CodexQueryFind(CodexQuery):
 
     action = "Find"
-
 
     def __init__(
         self,
@@ -44,3 +60,35 @@ class CodexQueryFind:
     # attribute
     # condtion_type
     # cond_value
+
+
+class CodexQueryCompute(CodexQuery):
+
+    action = "Compute"
+
+    def __init__(
+        self,
+        queries: dict,
+    ) -> None:
+        logging.info("Created codex query compute")
+
+        self.queries = queries
+
+    def __repr__(self):
+        return f"{self.queries}"
+
+
+class CodexQueryCluster(CodexQuery):
+
+    action = "Cluster"
+
+    def __init__(
+        self,
+        query: dict,
+    ) -> None:
+        logging.info("Created codex query cluster")
+
+        self.query = query
+
+    def __repr__(self):
+        return f"{self.query}"

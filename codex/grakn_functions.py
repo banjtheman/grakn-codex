@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Tuple
 
 import pandas as pd
 from grakn.client import GraknClient, ValueType
@@ -21,8 +22,15 @@ logging.basicConfig(
 # data_type_match["boolean"] = DataType.BOOLEAN
 
 
-def turn_value_type(val):
-
+def turn_value_type(val: ValueType):
+    """
+    Purpose:
+        Get string value type based on grakn value
+    Args:
+        val: Grakn Value Type
+    Returns:
+        string value based on Grakn value
+    """
     if val == ValueType.STRING:
         return "string"
 
@@ -38,8 +46,15 @@ def turn_value_type(val):
     return "date"
 
 
-def rev_value_type(val):
-
+def rev_value_type(val: str) -> ValueType:
+    """
+    Purpose:
+        Get Grakn value type based on string value
+    Args:
+        val: string value type
+    Returns:
+        Grakn Value based on string valye
+    """
     if val == "string":
         return ValueType.STRING
 
@@ -55,8 +70,16 @@ def rev_value_type(val):
     return ValueType.DATETIME
 
 
-def check_types(df: pd.DataFrame, col: str):
-
+def check_types(df: pd.DataFrame, col: str) -> ValueType:
+    """
+    Purpose:
+       Infer dataframe column Grakn type
+    Args:
+        df: Dataframe
+        col: column of dataframe
+    Returns:
+        Grakn Value Type
+    """
     if is_string_dtype(df[col]):
         return ValueType.STRING
 
@@ -73,8 +96,17 @@ def check_types(df: pd.DataFrame, col: str):
     return ValueType.DATETIME
 
 
-def create_relationship_query(session, entity_map: dict, rel_name: str, rel_map: dict):
-
+def create_relationship_query(entity_map: dict, rel_name: str, rel_map: dict) -> str:
+    """
+    Purpose:
+       Create relationship definition query
+    Args:
+        entity_map: Entities map
+        rel_name: The name of the relationship
+        rel_map:  Relationship Map
+    Returns:
+        graql_insert_query: The query to run
+    """
     graql_insert_query = "define " + rel_name + " sub relation, "
 
     # relates 1
@@ -109,8 +141,16 @@ def create_relationship_query(session, entity_map: dict, rel_name: str, rel_map:
     return graql_insert_query
 
 
-def find_cond_checker(attr: dict) -> str:
-
+def find_cond_checker(attr: dict) -> Tuple[str, list]:
+    """
+    Purpose:
+       Define condtion checker for the graql query
+    Args:
+        attr: dictionary of attributes
+    Returns:
+        grakn_query: The query to run
+        contain_statements: list of contain queries to run
+    """
     query_check_type = attr["attr_type"]
     cond_type = attr["cond"]["selected_cond"]
     cond_value = attr["cond"]["cond_value"]
@@ -163,8 +203,118 @@ def find_cond_checker(attr: dict) -> str:
 # match $Company isa Company, has name "Acme"; $Product isa Product, has name $name;(produces: $Company, produced: $Product) isa Productize;{ $name contains "widget x";};get;
 
 
-def find_query(session, query_object: dict) -> str:
+def cluster_query(session, query_object: dict) -> dict:
+    """
+    Purpose:
+       Construct the compute graql query
+    Args:
+        session: The Grakn session
+        query_object: The details of the query
+    Returns:
+        compute_results: Answers to the queries
+    """
+    cluster_obj = {}
+    logging.info(query_object.query)
+    # well just do the query...
 
+    # {'query_type': 'centrality', 'choice': 'subgraph', 'concepts': ['Company', 'Product', 'Productize'], 'query_string': 'compute centrality in [Company, Product, Productize], using degree'}
+    if "concepts" in query_object.query:
+
+        concepts = query_object.query["concepts"]
+        query = query_object.query["query_string"]
+
+        cluster_obj["answers"] = run_cluster_query(session, query, concepts)
+
+        # if "given_type" in query_object.query:
+        #     given_type = query_object.query["given_type"]
+
+        #     cluster_obj["answers"] = centrallity_query(session,query,given_type)
+        # else:
+        #     cluster_obj["answers"] = run_cluster_query(session,query,concepts)
+
+    return cluster_obj
+
+
+# ["Count", "Sum", "Maximum", "Minimum", "Mean" ,"Median" , "Standard Deviation"]
+compute_action_map = {
+    "Sum": "sum",
+    "Maximum": "max",
+    "Minimum": "min",
+    "Mean": "mean",
+    "Median": "median",
+    "Standard Deviation": "std",
+}
+
+
+def compute_query(session, query_object: dict) -> dict:
+    """
+    Purpose:
+       Construct the compute graql query
+    Args:
+        session: The Grakn session
+        query_object: The details of the query
+    Returns:
+        compute_results: Answers to the queries
+    """
+
+    queries = query_object.queries
+    compute_results = {}
+
+    for action in queries:
+
+        compute_results[action] = []
+
+        if action == "Count":
+
+            compute_objs = queries[action]
+            for compute_obj in compute_objs:
+                results_obj = {}
+                concept = compute_obj["concept"]
+                if concept == "All Concepts":
+                    graql_query = f"compute count;"
+                else:
+                    graql_query = f"compute count in {concept};"
+
+                results_obj["concept"] = concept
+                results_obj["query"] = graql_query
+                logging.info(graql_query)
+
+                answer = run_compute_query(session, graql_query)
+                results_obj["answer"] = answer
+                compute_results[action].append(results_obj)
+
+        else:
+            compute_objs = queries[action]
+            for compute_obj in compute_objs:
+                results_obj = {}
+                concept = compute_obj["concept"]
+                attr = compute_obj["attr"]
+
+                graql_query = (
+                    f"compute {compute_action_map[action]} of {attr}, in {concept};"
+                )
+
+                results_obj["concept"] = concept
+                results_obj["query"] = graql_query
+                logging.info(graql_query)
+
+                answer = run_compute_query(session, graql_query)
+                results_obj["answer"] = answer
+                compute_results[action].append(results_obj)
+
+    return compute_results
+
+
+def find_query(session, query_object: dict) -> dict:
+    """
+    Purpose:
+       Construct the find graql query
+    Args:
+        session: The Grakn session
+        query_object: The details of the query
+    Returns:
+        answers: Answers to the queries
+    """
     # for each concept make a query
     concepts = []
 
@@ -233,16 +383,23 @@ def find_query(session, query_object: dict) -> str:
     for query in concept_queries:
         logging.info(query)
 
-    answers = run_query(session, concept_queries, concepts)
+    answers = run_find_query(session, concept_queries, concepts)
     return answers
 
 
-def get_ent_obj(concept):
-
+# TODO do we need this function?
+def get_ent_obj(concept: str) -> dict:
+    """
+    Purpose:
+       Get the entity object?
+    Args:
+        concept: The string for the entity
+    Returns:
+        ent_obj: the object for the entity
+    """
     logging.info("checking concept")
 
     ent_obj = {}
-    logging.info(dir(concept))
     attr_iterator = concept.attributes()
 
     for attr in attr_iterator:
@@ -254,7 +411,184 @@ def get_ent_obj(concept):
     return ent_obj
 
 
-def run_query(session, queries, concepts):
+def centrallity_query(session, graql_query, concept):
+
+    ent_data = []
+    ent_map = {}
+
+    with session.transaction().read() as read_transaction:
+        answer_iterator = read_transaction.query(graql_query)
+        for answer in answer_iterator:
+            attr_iterator = answer.map().get(concept).attributes()
+            ent_obj = {}
+            ent_obj["id"] = answer.map().get(concept).id
+            rel_iterator = answer.map().get(concept).relations()
+
+            for rel in rel_iterator:
+                rel_label = rel.type().label()
+                logging.info("checking rel_label")
+                print(rel_label)
+
+                # check if label is in ent_map
+                if rel_label in ent_map:
+                    # print("got inside rel label")
+                    rel_attr_iterator = rel.attributes()
+                    rel_obj = {}
+                    for attr in rel_attr_iterator:
+                        # only care about codex_details? so do we need for loop?
+                        rel_obj[attr.type().label()] = attr.value()
+                    try:
+                        codex_details = json.loads(rel_obj["codex_details"])
+                        # print(codex_details)
+                        rel_obj[codex_details["rel1_name"]] = codex_details[
+                            "rel1_value"
+                        ]
+                        rel_obj[codex_details["rel2_name"]] = codex_details[
+                            "rel2_value"
+                        ]
+                        # print(rel_obj)
+
+                        # find out which one ent is part of
+                        if concept == ent_map[rel_label]["rel1"]:
+                            # print("hello")
+                            ent_rel_key = (
+                                codex_details["rel1_name"]
+                                + "_"
+                                + codex_details["rel2_value"]
+                            )
+                            ent_obj[ent_rel_key] = 1
+                        if concept == ent_map[rel_label]["rel2"]:
+                            # print("hello")
+                            ent_rel_key = (
+                                codex_details["rel2_name"]
+                                + "_"
+                                + codex_details["rel1_value"]
+                            )
+                            ent_obj[ent_rel_key] = 1
+                    except:
+                        continue
+
+            for attr in attr_iterator:
+                ent_obj[attr.type().label()] = attr.value()
+            ent_data.append(ent_obj)
+
+    return ent_data
+
+
+def run_cluster_query(session, graql_query: str, concepts: dict) -> dict:
+
+    connected_map = {}
+    ent_map = {}
+    clusters = []
+    cluster_obj = {}
+    cluster_obj["clusters"] = []
+    cluster_obj["ent_map"] = {}
+
+    for concept in concepts:
+        ent_map[concept] = {}
+        ent_map[concept]["data"] = {}
+
+    with session.transaction().read() as read_transaction:
+        answer_iterator = read_transaction.query(graql_query)
+        curr_measurement = 0
+        for answer in answer_iterator:
+            try:
+                curr_measurement = answer.measurement()
+            except:
+                curr_measurement = curr_measurement + 1
+
+            for concept in concepts:
+                ent_map[concept]["data"][curr_measurement] = []
+
+            connected_map[curr_measurement] = {}
+            connected_map[curr_measurement]["Attrs"] = []
+            connected_map[curr_measurement]["Ents"] = []
+            connected_map[curr_measurement]["Rels"] = []
+            clusters.append(curr_measurement)
+
+            for node_id in answer.set():
+                node = read_transaction.get_concept(node_id)
+                # check what type it is and do action
+                node_type = node.type()
+
+                if node_type.is_entity_type():
+                    # print("ent")
+                    attr_iterator = node.attributes()
+                    concept = node_type.label()
+                    ent_obj = {}
+                    for attr in attr_iterator:
+                        ent_obj[attr.type().label()] = attr.value()
+                    connected_map[curr_measurement]["Ents"].append(ent_obj)
+                    ent_map[concept]["data"][curr_measurement].append(ent_obj)
+                if node_type.is_relation_type():
+                    logging.info("AT a rel type")
+                    attr_iterator = node.attributes()
+                    concept = node_type.label()
+                    rel_obj = {}
+                    for attr in attr_iterator:
+                        rel_obj[attr.type().label()] = attr.value()
+                    codex_details = json.loads(rel_obj["codex_details"])
+
+                    logging.info("Codex Details:")
+                    logging.info(codex_details)
+
+                    rel_obj[codex_details["rel1_role"]] = codex_details["rel1_value"]
+                    rel_obj[codex_details["rel1_role"]] = codex_details["rel2_value"]
+
+                    connected_map[curr_measurement]["Rels"].append(rel_obj)
+                    ent_map[concept]["data"][curr_measurement].append(rel_obj)
+
+                if node_type.is_attribute_type():
+                    attr_obj = {}
+                    # print("attr")
+                    node_val = node.value()
+                    node_label = node.type().label()
+                    attr_obj["key"] = node_label
+                    attr_obj["value"] = node_val
+                    connected_map[curr_measurement]["Attrs"].append(attr_obj)
+
+                print("end of loop")
+                print(ent_map)
+                print(clusters)
+
+    cluster_obj["ent_map"] = ent_map
+    cluster_obj["clusters"] = clusters
+    logging.info("here is cluster obj")
+    logging.info(cluster_obj)
+
+    return cluster_obj
+
+
+def run_compute_query(session, graql_query: str) -> dict:
+    """
+    Purpose:
+       Excute the graql query
+    Args:
+        session: The Grakn session
+        graql_query: the query to run
+    Returns:
+        ent_map: Answers to the queries by entity
+    """
+
+    with session.transaction().read() as read_transaction:
+        answer_iterator = read_transaction.query(graql_query)
+        for answer in answer_iterator:
+            print(str(answer.number()))
+            num = answer.number()
+            return num
+
+
+def run_find_query(session, queries: list, concepts: list) -> dict:
+    """
+    Purpose:
+       Excute the graql query
+    Args:
+        session: The Grakn session
+        queries: the queriesto run
+        concepts: The concepts we are looking for
+    Returns:
+        ent_map: Answers to the queries by entity
+    """
     ent_map = {}
     concept_counter = 0
     for query in queries:
@@ -300,17 +634,63 @@ def run_query(session, queries, concepts):
     return ent_map
 
 
-def query_grakn(session, query_object):
+def turn_to_df(answers: list) -> pd.DataFrame:
+    """
+    Purpose:
+       Transform the answers to a dataframe
+    Args:
+        answers: list of answers
+    Returns:
+        df: Answers as a dataframe
+    """
+    if len(answers) == 0:
+        return None
 
+    cols = answers[0].keys()
+
+    df_map = {}
+    for col in cols:
+        df_map[col] = []
+
+    for answer in answers:
+        for col in answer:
+            df_map[col].append(answer[col])
+
+    df = pd.DataFrame.from_dict(df_map)
+    return df
+
+
+def query_grakn(session, query_object) -> dict:
+    """
+    Purpose:
+       Gateway to the grakn queries
+    Args:
+        session: The Grakn session
+        query_object: the query_object
+    Returns:
+        answers_df_map: Answers to the queries by entity
+    """
     logging.info(f"{query_object}")
     answers = {}
 
     if query_object.action == "Find":
         answers = find_query(session, query_object)
+        answers_df_map = {}
 
-        # TODO make df?
+        for answer in answers:
+            answers_df_map[answer] = turn_to_df(answers[answer])
+        return answers_df_map
 
-    return answers
+    elif query_object.action == "Compute":
+        answers = compute_query(session, query_object)
+        return answers
+
+    elif query_object.action == "Cluster":
+        answers = cluster_query(session, query_object)
+        return answers
+
+    else:
+        return answers
 
 
 # rel1: "Company"
@@ -321,8 +701,18 @@ def query_grakn(session, query_object):
 # [{"rel1_name":"produces","rel1":"Company","rel1_value":"Company A"}]
 
 
-def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict):
-
+def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict) -> None:
+    """
+    Purpose:
+       Insert statement for relationships
+    Args:
+        row: The current row of the dataframe
+        session: The Grakn session
+        rel_name: the relationship name
+        rel_map: the relationship map
+    Returns:
+        N/A
+    """
     rel1_role = rel_map["rel1"]["role"]
     rel2_role = rel_map["rel2"]["role"]
 
@@ -419,7 +809,20 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict):
         transaction.commit()
 
 
-def add_relationship_data(df: pd.DataFrame, rel_map: dict, rel_name: str, session):
+def add_relationship_data(
+    df: pd.DataFrame, rel_map: dict, rel_name: str, session
+) -> None:
+    """
+    Purpose:
+       add relationship data to Grakn
+    Args:
+        df: The data to add
+        rel_map: the relationship map
+        rel_name: the relationship name
+        session: The Grakn session
+    Returns:
+        N/A
+    """
     logging.info("Starting add relationships")
 
     # for each row in csv, add relationship
@@ -427,6 +830,14 @@ def add_relationship_data(df: pd.DataFrame, rel_map: dict, rel_name: str, sessio
 
 
 def add_relationship_to_entities(rel_map):
+    """
+    Purpose:
+       define entity relationship
+    Args:
+        rel_map: the relationship map
+    Returns:
+        graql_insert_query - graql query
+    """
     graql_insert_query = (
         "define "
         + rel_map["rel1"]["entity"]
@@ -441,6 +852,16 @@ def add_relationship_to_entities(rel_map):
 
 
 def create_entity_query(df: pd.DataFrame, entity_name: str, entity_key=None):
+    """
+    Purpose:
+       define entity graql query
+    Args:
+        df: Entity data
+        entity_name: Name of entity
+        entity_key: the key for the entity
+    Returns:
+        graql_insert_query - graql query
+    """
     graql_insert_query = "define " + entity_name + " sub entity"
 
     # check if attrs
@@ -474,14 +895,32 @@ def create_entity_query(df: pd.DataFrame, entity_name: str, entity_key=None):
     return graql_insert_query
 
 
-def sanitize_text(text: str):
+def sanitize_text(text: str) -> str:
+    """
+    Purpose:
+       clean text for grakn insert
+    Args:
+        text: text to cleam
+    Returns:
+        text - cleaned text
+    """
     # will add more when issues come
     text = str(text).replace("/", "_").replace(".", "_dot_")
     return str(text)
 
 
 def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict):
-
+    """
+    Purpose:
+       Insert statement for entites
+    Args:
+        row: The current row of the dataframe
+        session: The Grakn session
+        entity_name: the entity name
+        entity_map: the entity map
+    Returns:
+        N/A
+    """
     current_ent = entity_map[entity_name]
 
     entity_len = len(current_ent["cols"].keys())
@@ -517,25 +956,48 @@ def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict):
 def add_entities_into_grakn(
     session, df: pd.DataFrame, entity_name: str, entity_map: dict
 ):
+    """
+    Purpose:
+       add entites data to Grakn
+    Args:
+        session: The Grakn session
+        df: The data to add
+        entity_name: the entity name
+        entity_map: the entity map
+    Returns:
+        N/A
+    """
     logging.info("adding entities")
     # for each row in csv, add an entity
     df.apply(lambda row: commit_entity(row, session, entity_name, entity_map), axis=1)
 
 
-def get_all_entities(session):
+# TODO do we need this function?
+# def get_all_entities(session):
 
-    with session.transaction().write() as transaction:
-        entity_type = transaction.get_schema_concept("entity")
-        all_entities_iter = entity_type.instances()
-        someEntity = next(all_entities_iter)
+#     with session.transaction().write() as transaction:
+#         entity_type = transaction.get_schema_concept("entity")
+#         all_entities_iter = entity_type.instances()
+#         someEntity = next(all_entities_iter)
 
-        for ent in all_entities_iter:
-            print(ent.type().label())
+#         for ent in all_entities_iter:
+#             print(ent.type().label())
 
 
 def load_entity_into_grakn(
     session, df: pd.DataFrame, entity_name: str, entity_key=None
 ):
+    """
+    Purpose:
+       load entites into Grakn
+    Args:
+        session: The Grakn session
+        df: The data to add
+        entity_name: the entity name
+        entity_key: the entity key
+    Returns:
+        N/A
+    """
     # sample entity
     entity_map = {}
 
@@ -563,6 +1025,17 @@ def load_entity_into_grakn(
 def load_relationship_into_grakn(
     session, df: pd.DataFrame, cols: list, rel_name: str, rel_map: dict
 ):
+    """
+    Purpose:
+       load relationships into Grakn
+    Args:
+        session: The Grakn session
+        df: The data to add
+        rel_name: the relationship name
+        rel_map: the relationship map
+    Returns:
+        N/A
+    """
     # sample entity
     entity_map = {}
 
@@ -587,9 +1060,7 @@ def load_relationship_into_grakn(
 
     # make relationships
     with session.transaction().write() as transaction:
-        graql_insert_query = create_relationship_query(
-            session, entity_map, rel_name, rel_map
-        )
+        graql_insert_query = create_relationship_query(entity_map, rel_name, rel_map)
         print("Executing Graql Query: " + graql_insert_query)
         transaction.query(graql_insert_query)
         transaction.commit()

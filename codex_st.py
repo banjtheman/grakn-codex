@@ -8,7 +8,7 @@ import streamlit as st
 
 
 from codex import CodexKg
-from codex import CodexQueryFind
+from codex import CodexQueryFind, CodexQueryCompute, CodexQueryCluster
 
 # p = inflect.engine()
 
@@ -298,18 +298,7 @@ def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
     return rel_name
 
 
-def codex_reasoner(codexkg):
-
-    st.header("Reasoner")
-    st.subheader("Ask and you shall receive")
-
-    # st.write(codexkg.entity_map)
-    # st.write(codexkg.rel_map)
-
-    # The actions supported
-    actions = ["Find", "Compute", "Cluster"]
-
-    action = st.selectbox("Select Action", actions)
+def find_action(codexkg):
 
     ents = list(codexkg.entity_map.keys())
     rels = list(codexkg.rel_map.keys())
@@ -363,7 +352,312 @@ def codex_reasoner(codexkg):
     if st.button("Query"):
         st.success("Doing query")
         answers = codexkg.query(curr_query)
+
+        for key in answers.keys():
+            st.subheader(key)
+            if answers[key] is None:
+                st.error("No Matches for Query")
+            else:
+                st.write(answers[key])
+
+
+def attr_setter_compute(
+    codexkg: CodexKg, concept: str, is_ent: bool, action: str
+) -> list:
+
+    # Get Values from entites
+    if is_ent:
+        attrs = codexkg.entity_map[concept]["cols"]
+        attr_list = list(attrs.keys())
+        attr_list_comp = attr_list
+
+    # Get values for relationships
+    else:
+        attrs = codexkg.rel_map[concept]["cols"]
+        attr_list = list(attrs.keys())
+        attr_list.remove("codex_details")
+        attr_list_comp = attr_list
+
+    # this is the attribute for the entity i.e name
+
+    # check if it is a long/double
+    int_attrs = []
+    for attr in attr_list_comp:
+        if attrs[attr]["type"] == "double" or attrs[attr]["type"] == "long":
+            int_attrs.append(attr)
+
+    selected_attrs = st.multiselect(
+        "Select Attributes", int_attrs, key=f"{concept}_{action} attr select"
+    )
+
+    return selected_attrs
+
+
+def concept_string(concepts: list) -> str:
+
+    concept_string = "["
+    concept_len = len(concepts)
+    concept_counter = 1
+    for concept in concepts:
+
+        if concept_counter == concept_len:
+            concept_string += concept + "]"
+        else:
+            concept_string += concept + ", "
+        concept_counter += 1
+
+    return concept_string
+
+
+def compute_cluster(codexkg):
+
+    actions = ["connected-component", "k-core"]
+    action = st.selectbox("Select Actions", actions)
+
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+    ents_rels = ents + rels
+
+    cluster_obj = {}
+
+    if action == "connected-component":
+        concepts = st.multiselect(
+            "Select Concepts", ents_rels, key=f"{action} concept select"
+        )
+
+        cluster_obj["query_type"] = "cluster"
+        cluster_obj["choice"] = "cluster-in"
+        cluster_obj["concepts"] = concepts
+
+        query_string = (
+            f"compute cluster in {concept_string(concepts)}, using connected-component;"
+        )
+
+        cluster_obj["query_string"] = query_string
+
+    elif action == "k-core":
+        concepts = st.multiselect(
+            "Select Concepts", ents_rels, key=f"{action} concept select"
+        )
+
+        cluster_obj["query_type"] = "cluster"
+        cluster_obj["choice"] = "k-core"
+        cluster_obj["concepts"] = concepts
+        query_string = f"compute cluster in {concept_string(concepts)}, using k-core;"
+
+        if st.checkbox("specify k?"):
+            k_num = st.number_input("Select K", min_value=2, value=2, step=1)
+            query_string = f"compute cluster in {concept_string(concepts)}, using k-core,where k={k_num};"
+
+        cluster_obj["query_string"] = query_string
+
+    else:
+        st.error("Unknown type")
+
+    st.write(cluster_obj)
+    st.header(query_string)
+    curr_query = CodexQueryCluster(query=cluster_obj)
+
+    if st.button("Query"):
+        st.success("Doing query")
+        answers = codexkg.query(curr_query)
         st.write(answers)
+
+
+def compute_centrality(codexkg):
+
+    actions = ["degree", "k-core"]
+    action = st.selectbox("Select Actions", actions)
+
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+    ents_rels = ents + rels
+
+    cluster_obj = {}
+
+    if action == "degree":
+
+        choices = ["All Concepts", "Subgraph", "Given type"]
+        choice = st.selectbox("Select Chocie", choices, key="centrality select actions")
+
+        if choice == "All Concepts":
+            query_string = "compute centrality using degree;"
+
+            cluster_obj["query_string"] = query_string
+            cluster_obj["query_type"] = "centrality"
+            cluster_obj["choice"] = "All Concepts"
+            cluster_obj["concepts"] = ents_rels
+
+        elif choice == "Subgraph":
+
+            concepts = st.multiselect(
+                "Select Concepts", ents_rels, key=f"{action} concept select"
+            )
+
+            cluster_obj["query_type"] = "centrality"
+            cluster_obj["choice"] = "subgraph"
+            cluster_obj["concepts"] = concepts
+
+            query_string = (
+                f"compute centrality in {concept_string(concepts)}, using degree;"
+            )
+
+            cluster_obj["query_string"] = query_string
+
+        elif choice == "Given type":
+
+            given_type = st.selectbox(
+                "Select Concept", ents_rels, key=f"{action} concept select given"
+            )
+            concepts = st.multiselect(
+                "Select Concepts", ents_rels, key=f"{action} concept select"
+            )
+
+            cluster_obj["query_type"] = "centrality"
+            cluster_obj["choice"] = "subgraph"
+            cluster_obj["concepts"] = concepts
+            cluster_obj["given_type"] = given_type
+
+            query_string = f"compute centrality of {given_type}, in {concept_string(concepts)}, using degree;"
+            cluster_obj["query_string"] = query_string
+        else:
+            st.error("Unknown type")
+
+    if action == "k-core":
+        # concepts = st.multiselect("Select Concepts", ents_rels,key=f"{action} concept select")
+
+        cluster_obj["query_type"] = "centrality"
+        cluster_obj["choice"] = "k-core"
+        cluster_obj["concepts"] = ents_rels
+        query_string = f"compute centrality using k-core;"
+        concepts = ents_rels
+
+        if st.checkbox("specify k?"):
+            k_num = st.number_input("Select K", min_value=2, value=2, step=1)
+            query_string = f"compute centrality using k-core, where min-k={k_num};"
+
+        cluster_obj["query_string"] = query_string
+
+    st.write(cluster_obj)
+    st.header(query_string)
+    curr_query = CodexQueryCluster(query=cluster_obj)
+
+    if st.button("Query"):
+        st.success("Doing query")
+        answers = codexkg.query(curr_query)
+        st.write(answers)
+
+
+def compute_action(codexkg):
+
+    compute_obj = {}
+
+    actions = [
+        "Count",
+        "Sum",
+        "Maximum",
+        "Minimum",
+        "Mean",
+        "Median",
+        "Standard Deviation",
+    ]
+    action_list = st.multiselect("Select Actions", actions)
+
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+    ents_rels = ents + rels
+
+    for action in action_list:
+
+        compute_obj[action] = []
+
+        if action == "Count":
+            ents_rels.append("All Concepts")
+            concepts = st.multiselect(
+                "Select Concepts", ents_rels, key=f"{action} concept select"
+            )
+
+        else:
+            concepts = st.multiselect(
+                "Select Concepts", ents_rels, key=f"{action} concept select"
+            )
+
+        # select concept
+        for concept in concepts:
+            st.header(f"{action} Query Builder")
+
+            if concept in ents:
+                is_ent = True
+            else:
+                is_ent = False
+
+            if action == "Count":
+                query_text = f"Compute {action} for {concept}"
+                st.header(query_text)
+
+                count_obj = {}
+                count_obj["concept"] = concept
+                count_obj["query_text"] = query_text
+
+                compute_obj[action].append(count_obj)
+
+            else:
+                st.subheader(f"{concept} Query Builder")
+                attr_obj_list = attr_setter_compute(codexkg, concept, is_ent, action)
+
+                for attr in attr_obj_list:
+                    query_text = f"Compute {action} for {attr} in {concept}"
+
+                    action_obj = {}
+                    action_obj["concept"] = concept
+                    action_obj["attr"] = attr
+                    action_obj["query_text"] = query_text
+
+                    compute_obj[action].append(action_obj)
+                    st.header(query_text)
+
+    st.write(compute_obj)
+    curr_query = CodexQueryCompute(queries=compute_obj)
+
+    if st.button("Query"):
+        st.success("Doing query")
+        answers = codexkg.query(curr_query)
+        st.write(answers)
+
+        # for key in answers.keys():
+        #     st.subheader(key)
+        #     if answers[key] is None:
+        #         st.error("No Matches for Query")
+        #     else:
+        #         st.write(answers[key])
+
+    # select int value
+
+
+def codex_reasoner(codexkg):
+
+    st.header("Reasoner")
+    st.subheader("Ask and you shall receive")
+
+    # st.write(codexkg.entity_map)
+    # st.write(codexkg.rel_map)
+
+    # The actions supported
+    actions = ["Find", "Compute", "Centrality", "Cluster"]
+
+    action = st.selectbox("Select Action", actions)
+
+    if action == "Find":
+        find_action(codexkg)
+
+    if action == "Compute":
+        compute_action(codexkg)
+
+    if action == "Centrality":
+        compute_centrality(codexkg)
+
+    if action == "Cluster":
+        compute_cluster(codexkg)
 
 
 def main():

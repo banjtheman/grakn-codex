@@ -12,11 +12,11 @@ from .grakn_functions import add_entities_into_grakn
 from .grakn_functions import (
     load_relationship_into_grakn,
     add_relationship_data,
-    get_all_entities,
+    # get_all_entities,
     query_grakn,
 )
 
-from .codex_query import CodexQueryFind
+from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute
 
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
@@ -33,6 +33,19 @@ class CodexKg:
         redis_db=0,
         redis_password=None,
     ):
+        """
+        Purpose:
+            Create new CodexKg
+        Args:
+            uri: grakn url
+            credentials: grakn credentials
+            redis_host: redis location
+            redis_port: redis port
+            redis_db: redis db
+            redis_password: redis credentials
+        Returns:
+            N/A
+        """
         logging.info("created new CodexKg")
         self.uri = uri
         self.creds = credentials
@@ -51,20 +64,28 @@ class CodexKg:
             raise
 
     # TODO can we get this data without having to rely on redis?
-    def get_entites_grakn(self):
-        logging.info("get all entites")
+    # def get_entites_grakn(self):
+    #     logging.info("get all entites")
 
-        try:
-            with GraknClient(uri=self.uri, credentials=self.creds) as client:
-                with client.session(keyspace=self.keyspace) as session:
-                    get_all_entities(session)
+    #     try:
+    #         with GraknClient(uri=self.uri, credentials=self.creds) as client:
+    #             with client.session(keyspace=self.keyspace) as session:
+    #                 get_all_entities(session)
 
-                    return 0
-        except Exception as error:
-            logging.error(error)
-            return -1
+    #                 return 0
+    #     except Exception as error:
+    #         logging.error(error)
+    #         return -1
 
     def create_db(self, db_name: str):
+        """
+        Purpose:
+            Connect to Grakn keyspace
+        Args:
+            db_name: keyspace
+        Returns:
+            status: 0 if pass, -1 if fail
+        """
         logging.info("creating new keyspace " + db_name)
         logging.info("Connecting to grakn at " + self.uri)
         # start session create new db
@@ -100,6 +121,14 @@ class CodexKg:
             return -1
 
     def delete_db(self, db_name: str):
+        """
+        Purpose:
+            Delete Grakn keyspace
+        Args:
+            db_name: keyspace
+        Returns:
+            status: 0 if pass, -1 if fail
+        """
         logging.info("Deleteing keyspace " + db_name)
         logging.info("Connecting to grakn at " + self.uri)
         # start session create new db
@@ -118,6 +147,16 @@ class CodexKg:
             return -1
 
     def create_entity(self, df: pd.DataFrame, entity_name: str, entity_key=None):
+        """
+        Purpose:
+            Query Grakn
+        Args:
+            df: Relationship data
+            entity_name: name for the entity
+            entity_key: key for the entity
+        Returns:
+            status: 0 if pass, -1 if fail
+        """
         logging.info("Creating entity")
 
         try:
@@ -155,6 +194,17 @@ class CodexKg:
     def create_relationship(
         self, df: pd.DataFrame, rel_name: str, rel1: str, rel2: str
     ):
+        """
+        Purpose:
+            Query Grakn
+        Args:
+            df: Relationship data
+            rel_name: relationship name
+            rel1: first relationship
+            rel2: second relationship
+        Returns:
+            status: 0 if pass, -1 if fail
+        """
         logging.info("Creating relationship")
         try:
             # df = pd.read_csv(csv_path)
@@ -223,8 +273,15 @@ class CodexKg:
             logging.error(error)
             return -1
 
-    def query(self, query_object: CodexQueryFind):
-
+    def query(self, query_object: CodexQuery) -> dict:
+        """
+        Purpose:
+            Query Grakn
+        Args:
+            query_object: the query object
+        Returns:
+            answers: answers to the query
+        """
         logging.info(f"{query_object}")
         try:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
@@ -233,11 +290,15 @@ class CodexKg:
 
         except Exception as error:
             logging.error(error)
-            return -1
+            return None
 
     # TODO
     # streamlit example
-    # query/compute
+    # query
+    # - find - done
+    # - compute
+    # - cluster
     # create rules
-    # show graph?
+    # date queries
+    # show graph? codex_viz
     # get entites/rels?
