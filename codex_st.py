@@ -8,7 +8,7 @@ import streamlit as st
 
 
 from codex import CodexKg
-from codex import CodexQueryFind, CodexQueryCompute, CodexQueryCluster
+from codex import CodexQueryFind, CodexQueryCompute, CodexQueryCluster, CodexQueryRule
 
 # p = inflect.engine()
 
@@ -141,7 +141,9 @@ def main_menu(codexkg, keyspace):
         codexkg.delete_db(keyspace)
 
 
-def cond_setter(attr_type: str, attr_name: str, concept: str, seed: str) -> str:
+def cond_setter(
+    attr_type: str, attr_name: str, concept: str, seed: str, rule_num: int
+) -> str:
 
     cond_json = {}
 
@@ -150,20 +152,26 @@ def cond_setter(attr_type: str, attr_name: str, concept: str, seed: str) -> str:
     if attr_type == "string":
         conds = ["Equals", "Contains"]
         selected_cond = st.selectbox(
-            "Select Condition", conds, key=f"{concept}-{attr_name} {seed} cond checker"
+            "Select Condition",
+            conds,
+            key=f"{concept}-{attr_name} {seed} {rule_num} cond checker",
         )
         cond_value = st.text_input(
-            "Condition Value", key=f"{concept}-{attr_name} {seed} cond value"
+            "Condition Value",
+            key=f"{concept}-{attr_name} {seed} {rule_num}  cond value",
         )
         cond_string = " that " + selected_cond + " " + cond_value
 
     if attr_type == "long" or attr_type == "double":
         conds = ["Equals", "Less Than", "Greater Than"]
         selected_cond = st.selectbox(
-            "Select Condition", conds, key=f"{concept}-{attr_name} {seed} cond checker"
+            "Select Condition",
+            conds,
+            key=f"{concept}-{attr_name} {seed}  {rule_num} cond checker",
         )
         cond_value = st.number_input(
-            "Condition Value", key=f"{concept}-{attr_name} {seed} cond value"
+            "Condition Value",
+            key=f"{concept}-{attr_name} {seed}  {rule_num} cond value",
         )
         cond_string = f" that {selected_cond} {cond_value}"
 
@@ -174,7 +182,7 @@ def cond_setter(attr_type: str, attr_name: str, concept: str, seed: str) -> str:
     return cond_json
 
 
-def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
+def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool, rule_num):
 
     # Get Values from entites
     plays_map = {}
@@ -205,7 +213,7 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
         attr_list_comp = attr_list
 
     # this is the attribute for the entity i.e name
-    selected_attrs = st.multiselect("Select Attributes", attr_list_comp)
+    selected_attrs = st.multiselect(f"Select Attributes {rule_num}", attr_list_comp)
 
     attr_obj_list = []
 
@@ -223,13 +231,17 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
 
             # TODO can we make this a function
             # check condtion type
-            cond_json = cond_setter(attr_type, selected_attr, concept, "seed1")
+            cond_json = cond_setter(
+                attr_type, selected_attr, concept, "seed1", rule_num
+            )
             attr_json["attr_concept"] = concept
 
         else:
             attr_string = " that " + selected_attr
             st.subheader(f"Concepts for {selected_attr}")
-            selected_ent2 = st.selectbox("Select Entity", plays_map[selected_attr])
+            selected_ent2 = st.selectbox(
+                f"Select Entity {rule_num}", plays_map[selected_attr]
+            )
 
             attr_json["rel_ent"] = selected_ent2
             attr_json["rel_attr"] = selected_attr
@@ -243,12 +255,14 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool):
             attr_string += " " + selected_ent2
             attrs2 = codexkg.entity_map[selected_ent2]["cols"]
             attr_list2 = list(attrs2.keys())
-            selected_attr = st.selectbox("Select Attribute", attr_list2)
+            selected_attr = st.selectbox(f"Select Attribute {rule_num}", attr_list2)
             attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr]["type"]
 
             attr_string += " that have a " + selected_attr
 
-            cond_json = cond_setter(attr_type, selected_attr, selected_ent2, "seed2")
+            cond_json = cond_setter(
+                attr_type, selected_attr, selected_ent2, "seed2", rule_num
+            )
 
         attr_json["cond"] = cond_json
         attr_json["attr_type"] = attr_type
@@ -320,7 +334,7 @@ def find_action(codexkg):
 
         st.header(f"{concept} Query Builder")
 
-        attr_obj_list = attr_setter(codexkg, concept, is_ent)
+        attr_obj_list = attr_setter(codexkg, concept, is_ent, 1)
 
         concept_json = {}
         concept_json["concept"] = concept
@@ -660,6 +674,221 @@ def codex_reasoner(codexkg):
         compute_cluster(codexkg)
 
 
+def rule_action(codexkg, rule_num):
+
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+
+    ents_rels = ents + rels
+
+    concept = st.selectbox(f"Select Rule{rule_num} Concepts", ents_rels)
+
+    # concept_type = ""
+
+    if concept in ents:
+        is_ent = True
+        concept_type = "Entity"
+    else:
+        is_ent = False
+        concept_type = "Relationship"
+
+    st.header(f"{concept} Query Builder")
+
+    attr_obj_list = attr_setter(codexkg, concept, is_ent, rule_num)
+
+    concept_json = {}
+    concept_json["concept"] = concept
+    concept_json["concept_type"] = concept_type
+    concept_json["attrs"] = attr_obj_list
+    concept_json["query_string"] = query_string_find_maker(concept, attr_obj_list)
+
+    # st.write(attr_obj_list)
+
+    # TODO make a codex_query object
+    # TODO add mulipte queries
+    try:
+        query_text = ""
+        query_text += concept_json["query_string"]
+    except:
+        query_text = "Enter Query:"
+
+    # make a codex_query object here
+    # curr_query = CodexQueryFind(concepts=codex_query_list, query_string=query_text)
+
+    # st.write(str(curr_query))
+
+    st.write(concept_json)
+
+    st.header(query_text)
+
+    return concept_json
+    # if st.button("Query"):
+    #     st.success("Doing query")
+    #     answers = codexkg.query(curr_query)
+
+    #     for key in answers.keys():
+    #         st.subheader(key)
+    #         if answers[key] is None:
+    #             st.error("No Matches for Query")
+    #         else:
+    #             st.write(answers[key])
+
+
+def make_rule_string(rule_obj):
+
+    rule_string = ""
+
+    # check cond1
+    rule_name = rule_obj["name"]
+
+    cond1 = rule_obj["cond1"]
+    cond2 = rule_obj["cond2"]
+
+    rule_string += f"If {cond1['concept']} A "
+
+    attr_len = len(cond1["attrs"])
+    attr_counter = 1
+    for attr in cond1["attrs"]:
+
+        if "rel_attr" in attr:
+            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} X that has a {attr['attribute']} {attr['cond']['cond_string']}"
+        else:
+            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"           
+
+        if attr_counter == attr_len:
+            rule_string += "."
+        else:
+            rule_string += " and "
+
+        attr_counter += 1
+
+    # check cond2
+    attr_len = len(cond2["attrs"])
+    attr_counter = 1
+    rule_string += f"If {cond2['concept']} B "
+    for attr in cond2["attrs"]:
+
+        if "rel_attr" in attr:
+            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
+        else:
+            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"           
+
+        if attr_counter == attr_len:
+            rule_string += "."
+        else:
+            rule_string += " and "
+
+        attr_counter += 1
+
+
+    rule_string += f"Then  {cond1['concept']} A and {cond2['concept']} B are {rule_name}"
+    
+
+
+
+
+    return rule_string
+
+
+def rule_maker(codexkg):
+
+    st.header("Rule Maker")
+    st.subheader("lets make some rules")
+
+    rule_name = st.text_input("Enter rule_name")
+
+    # cond 1
+    rule_cond1 = rule_action(codexkg, 1)
+
+    # cond 2
+    rule_cond2 = rule_action(codexkg, 2)
+
+    # query =f"define {rule_name}  sub rule,"
+
+    st.header("Rule Object")
+
+    rule_obj = {}
+
+    rule_obj["name"] = rule_name
+    rule_obj["cond1"] = rule_cond1
+    rule_obj["cond2"] = rule_cond2
+
+    st.write(rule_obj)
+
+    rule_string = make_rule_string(rule_obj)
+
+    st.header(rule_string)
+
+
+    curr_query = CodexQueryRule(rule=rule_obj, rule_string=rule_string)
+
+    if st.button("Create rule"):
+        st.success("Creating rule...")
+        answers = codexkg.query(curr_query)
+        st.write(answers)
+
+
+
+    # st.subheader(query)
+
+    # Given the data, define a rule..
+    # A rule defines a relationship between two entities, based on condtions
+
+    # So for our simple example...
+
+    # if company a produce a product with the word widget
+    # if compnay b produces a product with the word widget
+    # and a != b
+
+    # then a and b are competitors
+
+    # Our graql for this will be...
+    # match $Company isa Company; $Product isa Product, has name $Product_name;(produces: $Company, produced: $Product) isa Productize;{ $Product_name contains "widget";};get;
+    #
+
+    # define
+    # RULE_NAME sub rule,
+    # when {
+    #  match $Company isa Company; $Product isa Product, has name $Product_name;(produces: $Company, produced: $Product) isa Productize;{ $Product_name contains "widget";};
+
+    #
+    #      },
+    # then {
+    #
+    # };
+
+    # example graql
+
+    # define
+
+    # people-with-same-parents-are-siblings sub rule,
+    # when {
+    #     (mother: $m, $x) isa parentship;
+    #     (mother: $m, $y) isa parentship;
+    #     (father: $f, $x) isa parentship;
+    #     (father: $f, $y) isa parentship;
+    #     $x != $y;
+    # }, then {
+    #     (sibling: $x, sibling: $y) isa siblings;
+    # };
+
+    #
+
+
+
+def raw_query(codexkg):
+
+
+    query_types = ["read","write"]
+    mode = st.selectbox("Select query type",query_types)
+
+    query = st.text_input("Enter Query")
+
+    if st.button("Do query"):
+        answers = codexkg.raw_graql(query,mode)
+        st.write(answers)
+
+
 def main():
 
     st.title("Codex")
@@ -680,6 +909,14 @@ def main():
 
         # show reasoner
         codex_reasoner(codexkg)
+
+        # show ruler maker
+        rule_maker(codexkg)
+
+        #raw query
+        raw_query(codexkg)
+
+
 
 
 if __name__ == "__main__":

@@ -14,6 +14,8 @@ from .grakn_functions import (
     add_relationship_data,
     # get_all_entities,
     query_grakn,
+    raw_query_read_grakn,
+    raw_query_write_grakn
 )
 
 from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute
@@ -273,6 +275,33 @@ class CodexKg:
             logging.error(error)
             return -1
 
+
+    def raw_graql(self, graql_string:str,mode:str) -> dict:
+        """
+        Purpose:
+            Run raw graql queries
+        Args:
+            query_object: the query object
+        Returns:
+            answers: answers to the query
+        """
+
+        #match (competitors_relationship_1: $x, competitors_relationship_2: $y) isa competitors; get;
+        try:
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                with client.session(keyspace=self.keyspace) as session:
+
+                    if mode =="read":
+                        return raw_query_read_grakn(session, graql_string)
+                    else:
+                        return raw_query_write_grakn(session, graql_string)
+
+
+        except Exception as error:
+            logging.error(error)
+            return None
+
+
     def query(self, query_object: CodexQuery) -> dict:
         """
         Purpose:
@@ -296,9 +325,19 @@ class CodexKg:
     # streamlit example
     # query
     # - find - done
-    # - compute
-    # - cluster
+    # - compute - done
+    # - cluster - done 
+    # "real data"
+    # topics blobls and tweets?
+    #  topics
+    #  tweets - text, char length, has_link, is_retweet,
+    #  user - name, num_followers, following, verified  
     # create rules
-    # date queries
+    # date queries 
+    # - maybe let user pick?
+    # re org streamlit app
     # show graph? codex_viz
-    # get entites/rels?
+    # biz case - shower
+    # show secondary entity for rel searches?
+    # api?
+    # import entites/rels?
