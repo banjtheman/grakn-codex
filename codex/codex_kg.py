@@ -15,7 +15,7 @@ from .grakn_functions import (
     # get_all_entities,
     query_grakn,
     raw_query_read_grakn,
-    raw_query_write_grakn
+    raw_query_write_grakn,
 )
 
 from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute
@@ -54,7 +54,7 @@ class CodexKg:
         self.entity_map = {}
         self.rel_map = {}
         self.rkey = ""
-        # TODO add rules map
+        self.rules_map = {}
 
         # connect to redis
         try:
@@ -79,7 +79,7 @@ class CodexKg:
     #         logging.error(error)
     #         return -1
 
-    def create_db(self, db_name: str):
+    def create_db(self, db_name: str) -> int:
         """
         Purpose:
             Connect to Grakn keyspace
@@ -108,12 +108,14 @@ class CodexKg:
                     curr_keyspace = json.loads(self.cache.get(self.rkey))
                     self.entity_map = curr_keyspace["entity_map"]
                     self.rel_map = curr_keyspace["rel_map"]
+                    self.rules_map = curr_keyspace["rules_map"]
 
                 else:
                     logging.info("Creating new keypsace in redis")
                     blank_keyspace = {}
                     blank_keyspace["entity_map"] = {}
                     blank_keyspace["rel_map"] = {}
+                    blank_keyspace["rules_map"] = {}
                     # TODO add rules map
                     self.cache.set(rkey, json.dumps(blank_keyspace))
 
@@ -122,7 +124,7 @@ class CodexKg:
             logging.error(error)
             return -1
 
-    def delete_db(self, db_name: str):
+    def delete_db(self, db_name: str) -> int:
         """
         Purpose:
             Delete Grakn keyspace
@@ -148,7 +150,7 @@ class CodexKg:
             logging.error(error)
             return -1
 
-    def create_entity(self, df: pd.DataFrame, entity_name: str, entity_key=None):
+    def create_entity(self, df: pd.DataFrame, entity_name: str, entity_key=None) -> int:
         """
         Purpose:
             Query Grakn
@@ -195,7 +197,7 @@ class CodexKg:
 
     def create_relationship(
         self, df: pd.DataFrame, rel_name: str, rel1: str, rel2: str
-    ):
+    ) -> int:
         """
         Purpose:
             Query Grakn
@@ -275,8 +277,7 @@ class CodexKg:
             logging.error(error)
             return -1
 
-
-    def raw_graql(self, graql_string:str,mode:str) -> dict:
+    def raw_graql(self, graql_string: str, mode: str) -> dict:
         """
         Purpose:
             Run raw graql queries
@@ -286,21 +287,19 @@ class CodexKg:
             answers: answers to the query
         """
 
-        #match (competitors_relationship_1: $x, competitors_relationship_2: $y) isa competitors; get;
+        # match (competitors_relationship_1: $x, competitors_relationship_2: $y) isa competitors; get;
         try:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
                 with client.session(keyspace=self.keyspace) as session:
 
-                    if mode =="read":
+                    if mode == "read":
                         return raw_query_read_grakn(session, graql_string)
                     else:
                         return raw_query_write_grakn(session, graql_string)
 
-
         except Exception as error:
             logging.error(error)
             return None
-
 
     def query(self, query_object: CodexQuery) -> dict:
         """
@@ -315,7 +314,23 @@ class CodexKg:
         try:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
                 with client.session(keyspace=self.keyspace) as session:
-                    return query_grakn(session, query_object)
+
+                    if query_object.action == "Rule":
+
+                        rule_name = query_object.rule["name"]
+                        self.rules_map[rule_name] = query_grakn(session, query_object)
+
+                        # get current key space
+                        curr_keyspace = json.loads(self.cache.get(self.rkey))
+                        # update rules maps
+                        curr_keyspace["rules_map"] = self.rules_map
+                        # update redis
+                        self.cache.set(self.rkey, json.dumps(curr_keyspace))
+
+                        return self.rules_map[rule_name]
+
+                    else:
+                        return query_grakn(session, query_object)
 
         except Exception as error:
             logging.error(error)
@@ -326,16 +341,16 @@ class CodexKg:
     # query
     # - find - done
     # - compute - done
-    # - cluster - done 
+    # - cluster - done
     # "real data"
     # topics blobls and tweets?
     #  topics
     #  tweets - text, char length, has_link, is_retweet,
-    #  user - name, num_followers, following, verified  
-    # create rules
-    # date queries 
-    # - maybe let user pick?
+    #  user - name, num_followers, following, verified
+    # create rules - done :)
     # re org streamlit app
+    # date quieres - check if string matches date format, if not then its a string
+    # not quieres?
     # show graph? codex_viz
     # biz case - shower
     # show secondary entity for rel searches?

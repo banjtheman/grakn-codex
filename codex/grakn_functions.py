@@ -141,7 +141,7 @@ def create_relationship_query(entity_map: dict, rel_name: str, rel_map: dict) ->
     return graql_insert_query
 
 
-def find_cond_checker_rule(attr: dict,dif_1: str) -> Tuple[str, list]:
+def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
     """
     Purpose:
        Define condtion checker for the graql query
@@ -192,11 +192,6 @@ def find_cond_checker_rule(attr: dict,dif_1: str) -> Tuple[str, list]:
     return grakn_query, contain_statements
 
 
-
-
-
-
-
 def find_cond_checker(attr: dict) -> Tuple[str, list]:
     """
     Purpose:
@@ -220,6 +215,8 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
     contain_statements = []
 
     if query_check_type:
+        # TODO add check for date
+
         # check if string
         if query_check_type == "string":
 
@@ -312,7 +309,6 @@ def compute_query(session, query_object: dict) -> dict:
     Returns:
         compute_results: Answers to the queries
     """
-
     queries = query_object.queries
     compute_results = {}
 
@@ -361,9 +357,17 @@ def compute_query(session, query_object: dict) -> dict:
     return compute_results
 
 
-
-def attr_make_rule_query(concept,dif_1,dif_2):
-
+def attr_make_rule_query(concept: str, dif_1: str, dif_2: str) -> str:
+    """
+    Purpose:
+       Construct the rule graql query for attrs
+    Args:
+        concept: the current concept
+        dif_1: The first condition var
+        dif_2: The second condition var
+    Returns:
+        grakn_query: the query string
+    """
     grakn_query = ""
     contain_statements = []
     rel_statements = []
@@ -377,7 +381,7 @@ def attr_make_rule_query(concept,dif_1,dif_2):
             rel_query_string = f"; ${attr['rel_ent']}{dif_2} isa {attr['rel_ent']}"
             rel_query_string += f", has {attr['attribute']}"
 
-            grakn_query_cond, contains_array = find_cond_checker_rule(attr,dif_2)
+            grakn_query_cond, contains_array = find_cond_checker_rule(attr, dif_2)
             rel_query_string += grakn_query_cond
             contain_statements.extend(contains_array)
 
@@ -417,11 +421,8 @@ def attr_make_rule_query(concept,dif_1,dif_2):
             grakn_query += " "
 
         attr_counter += 1
-    
 
     return grakn_query
-
-
 
 
 def rule_query(session, query_object: dict) -> dict:
@@ -432,80 +433,63 @@ def rule_query(session, query_object: dict) -> dict:
         session: The Grakn session
         query_object: The details of the query
     Returns:
-        answers: rules made?
+        rules_map: info on the rule
     """
-
     logging.info(query_object)
-
 
     cond1 = query_object.rule["cond1"]
     cond2 = query_object.rule["cond2"]
     rule_name = query_object.rule["name"]
 
-    #define statement
+    # define statement
     # WE HAVE TO define the relationship as well!!!
     graql_string = f"define {rule_name} sub relation, relates {rule_name}_relationship_1, relates {rule_name}_relationship_2;"
     graql_string += f"{cond1['concept']} sub entity, plays {rule_name}_relationship_1, plays {rule_name}_relationship_2;"
     graql_string += f"{cond2['concept']} sub entity, plays {rule_name}_relationship_1, plays {rule_name}_relationship_2;"
     graql_string += f"{rule_name}-rule sub rule,"
 
-
-
-    # define
-    # competitors sub rule,
-    # when {
-    # $Company_1 isa Company; $Product_1 isa Product, has name $Product_name;(produces: $Company_1, produced: $Product_1) isa Productize;{ $Product_name contains "widget";};
-    # $Company_2 isa Company; $Product_2 isa Product, has name $Product_name;(produces: $Company_2, produced: $Product_2) isa Productize;{ $Product_name contains "widget";};
-    # $Company_1 != $Company_2;
-    # }, then {
-    # (Company_1: $x, Company_2: $y) isa competitor;
-    # };
-
-    #when statement
+    # when statement
     graql_string += "when {"
 
-
-
-    #cond1
+    # cond1
     graql_string += f"${cond1['concept']}_A isa {cond1['concept']}"
 
-    graql_string += attr_make_rule_query(cond1,"_A","_X")
+    graql_string += attr_make_rule_query(cond1, "_A", "_X")
 
     logging.info("query after cond1")
     logging.info(graql_string)
 
-
-    #cond2
+    # cond2
     graql_string += f"${cond2['concept']}_B isa {cond2['concept']}"
 
-    graql_string += attr_make_rule_query(cond1,"_B","_Y")
+    graql_string += attr_make_rule_query(cond1, "_B", "_Y")
 
     logging.info("query after cond2")
     logging.info(graql_string)
 
-    #not equal check
+    # not equal check
 
     graql_string += f"${cond1['concept']}_A != ${cond2['concept']}_B;}},"
 
-    #then statement
+    # then statement
     graql_string += "then {"
 
     graql_string += f"({rule_name}_relationship_1: ${cond1['concept']}_A, {rule_name}_relationship_2: ${cond2['concept']}_B) isa {rule_name};}};"
 
-
     logging.info(graql_string)
 
     try:
-        raw_query_write_grakn(session,graql_string)
+        raw_query_write_grakn(session, graql_string)
     except Exception as error:
         logging.error(error)
 
+    rules_map = {}
+    rules_map["graql_query"] = graql_string
+    rules_map["rule_string"] = query_object.rule_string
+    rules_map["cond1"] = cond1
+    rules_map["cond2"] = cond2
 
-
-
-
-
-    return query_object
+    return rules_map
 
 
 def find_query(session, query_object: dict) -> dict:
@@ -614,8 +598,17 @@ def get_ent_obj(concept: str) -> dict:
     return ent_obj
 
 
-def centrallity_query(session, graql_query, concept):
-
+def centrallity_query(session, graql_query: str, concept: str):
+    """
+    Purpose:
+       Excute the graql centrallity query
+    Args:
+        session: The Grakn session
+        graql_query: the query to run
+        concept: concept to check
+    Returns:
+        ent_data: Answers to the query
+    """
     ent_data = []
     ent_map = {}
 
@@ -679,7 +672,16 @@ def centrallity_query(session, graql_query, concept):
 
 
 def run_cluster_query(session, graql_query: str, concepts: dict) -> dict:
-
+    """
+    Purpose:
+       Excute the graql centrallity query
+    Args:
+        session: The Grakn session
+        graql_query: the query to run
+        concepts: concepts to check
+    Returns:
+        cluster_obj: Answers to the query
+    """
     connected_map = {}
     ent_map = {}
     clusters = []
@@ -772,7 +774,6 @@ def raw_query_write_grakn(session, graql_query: str) -> None:
     Returns:
         ent_map: Answers to the queries by entity
     """
-
     # run rule insert here
     with session.transaction().write() as transaction:
         logging.info("Executing Graql Query: " + graql_query)
@@ -790,11 +791,10 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
     Returns:
         ent_map: Answers to the queries by entity
     """
-
     ent_map = {}
-    
+
     with session.transaction().read() as read_transaction:
-        answer_iterator = read_transaction.query(graql_query)
+        answer_iterator = read_transaction.query(graql_query, explain=True)
         for answer in answer_iterator:
             try:
 
@@ -802,69 +802,78 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
 
                 logging.info(answer_concepts)
 
-
                 for key in answer_concepts:
 
-                    ent_map[key] = []
+                    ent_map[key] = {}
+                    ent_map[key]["concepts"] = []
 
                     ent_obj = {}
                     curr_ent = answer.map().get(key)
                     logging.info(key)
 
                     cur_val = read_transaction.get_concept(curr_ent.id)
-                    logging.info(cur_val.type())
-                    
-                    #then its a rule
+
+                    # then its a rule
                     if cur_val.is_inferred():
-                        logging.info("YES THIS A RULE")
                         rels = cur_val.role_players()
                         for rel in rels:
                             ent_obj = {}
-                            logging.info(rel)
                             attr_iterator = rel.attributes()
-
-                            #todo how is this infered?
 
                             for attr in attr_iterator:
                                 logging.info(attr.value())
                                 ent_obj[attr.type().label()] = attr.value()
-                        
 
+                            ent_map[key]["concepts"].append(ent_obj)
 
-                            ent_map[key].append(ent_obj)
+                    if answer.has_explanation():
+                        explanation = answer.explanation()
+                        explanation_map = {}
+                        logging.info(explanation.get_answers())
 
-                    #['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', '_tx_service', 'as_remote', 'assign', 'attributes', 'base_type', 'delete', 'has', 'id', 'is_attribute', 'is_attribute_type', 'is_deleted', 'is_entity', 'is_entity_type', 'is_inferred', 'is_relation', 'is_relation_type', 'is_role', 'is_rule', 'is_schema_concept', 'is_thing', 'is_type', 'keys', 'relations', 'role_players', 'role_players_map', 'roles', 'type', 'unassign', 'unhas']
+                        for exp_concept in explanation.get_answers():
+                            logging.info(exp_concept.map())
+
+                            concept_keys = list(exp_concept.map().keys())
+
+                            for concept_key in concept_keys:
+                                logging.info(concept_key)
+
+                                curr_concept = exp_concept.map().get(concept_key)
+                                cur_val = read_transaction.get_concept(curr_concept.id)
+
+                                # check if attr
+                                explanation_map[concept_key] = {}
+
+                                if cur_val.is_attribute():
+                                    explanation_map[concept_key][
+                                        cur_val.type().label()
+                                    ] = cur_val.value()
+
+                                else:
+                                    attr_iterator = cur_val.attributes()
+                                    for attr in attr_iterator:
+                                        logging.info(attr.value())
+                                        explanation_map[concept_key][
+                                            attr.type().label()
+                                        ] = attr.value()
+
+                        ent_map[key]["explanation"] = explanation_map
 
                     else:
-                    
 
                         attr_iterator = cur_val.attributes()
 
                         for attr in attr_iterator:
                             ent_obj[attr.type().label()] = attr.value()
 
-
-                        #check if has explaintion
-
-                        pattern = answer.query_pattern()
-                        logging.info("Pattern")
-                        logging.info(pattern)
-                        logging.info(answer.has_explanation())
-
-                        if answer.has_explanation():
-                            explanation = answer.explanation()
-                            logging.info(explanation)
-                            ent_obj["explanation"] = explanation
-
                         ent_map[key].append(ent_obj)
 
             except Exception as error:
                 logging.error(error)
 
-
     logging.info(ent_map)
     return ent_map
-
 
 
 def run_compute_query(session, graql_query: str) -> dict:
@@ -1000,7 +1009,6 @@ def query_grakn(session, query_object) -> dict:
     elif query_object.action == "Rule":
         answers = rule_query(session, query_object)
         return answers
-
 
     else:
         return answers
@@ -1164,7 +1172,7 @@ def add_relationship_to_entities(rel_map):
     return graql_insert_query
 
 
-def create_entity_query(df: pd.DataFrame, entity_name: str, entity_key=None):
+def create_entity_query(df: pd.DataFrame, entity_name: str, entity_key=None) -> str:
     """
     Purpose:
        define entity graql query
@@ -1222,7 +1230,7 @@ def sanitize_text(text: str) -> str:
     return str(text)
 
 
-def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict):
+def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict) -> None:
     """
     Purpose:
        Insert statement for entites
@@ -1268,7 +1276,7 @@ def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict):
 
 def add_entities_into_grakn(
     session, df: pd.DataFrame, entity_name: str, entity_map: dict
-):
+) -> None:
     """
     Purpose:
        add entites data to Grakn
@@ -1299,7 +1307,7 @@ def add_entities_into_grakn(
 
 def load_entity_into_grakn(
     session, df: pd.DataFrame, entity_name: str, entity_key=None
-):
+) -> dict:
     """
     Purpose:
        load entites into Grakn
@@ -1309,7 +1317,7 @@ def load_entity_into_grakn(
         entity_name: the entity name
         entity_key: the entity key
     Returns:
-        N/A
+        entity_map: entity data
     """
     # sample entity
     entity_map = {}
@@ -1337,7 +1345,7 @@ def load_entity_into_grakn(
 
 def load_relationship_into_grakn(
     session, df: pd.DataFrame, cols: list, rel_name: str, rel_map: dict
-):
+) -> dict:
     """
     Purpose:
        load relationships into Grakn
@@ -1347,7 +1355,7 @@ def load_relationship_into_grakn(
         rel_name: the relationship name
         rel_map: the relationship map
     Returns:
-        N/A
+        entity_map: relationship data
     """
     # sample entity
     entity_map = {}

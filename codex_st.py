@@ -312,6 +312,22 @@ def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
     return rel_name
 
 
+def handle_rule_query(codexkg):
+
+    # get list of rules
+
+    rules = list(codexkg.rules_map.keys())
+    concept = st.selectbox("Select relationship", rules)
+
+    rules_string = codexkg.rules_map[concept]["rule_string"]
+    st.subheader(rules_string)
+    query = f"match $x isa {concept}; get;"
+
+    if st.button(f"Find {concept} relationships"):
+        answers = codexkg.raw_graql(query, "read")
+        st.write(answers)
+
+
 def find_action(codexkg):
 
     ents = list(codexkg.entity_map.keys())
@@ -657,12 +673,15 @@ def codex_reasoner(codexkg):
     # st.write(codexkg.rel_map)
 
     # The actions supported
-    actions = ["Find", "Compute", "Centrality", "Cluster"]
+    actions = ["Find", "Compute", "Centrality", "Cluster", "Reason"]
 
     action = st.selectbox("Select Action", actions)
 
     if action == "Find":
         find_action(codexkg)
+
+    if action == "Reason":
+        handle_rule_query(codexkg)
 
     if action == "Compute":
         compute_action(codexkg)
@@ -753,7 +772,7 @@ def make_rule_string(rule_obj):
         if "rel_attr" in attr:
             rule_string += f"{attr['rel_attr']} {attr['rel_ent']} X that has a {attr['attribute']} {attr['cond']['cond_string']}"
         else:
-            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"           
+            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
 
         if attr_counter == attr_len:
             rule_string += "."
@@ -771,7 +790,7 @@ def make_rule_string(rule_obj):
         if "rel_attr" in attr:
             rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
         else:
-            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"           
+            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
 
         if attr_counter == attr_len:
             rule_string += "."
@@ -780,12 +799,9 @@ def make_rule_string(rule_obj):
 
         attr_counter += 1
 
-
-    rule_string += f"Then  {cond1['concept']} A and {cond2['concept']} B are {rule_name}"
-    
-
-
-
+    rule_string += (
+        f"Then  {cond1['concept']} A and {cond2['concept']} B are {rule_name}"
+    )
 
     return rule_string
 
@@ -819,7 +835,6 @@ def rule_maker(codexkg):
 
     st.header(rule_string)
 
-
     curr_query = CodexQueryRule(rule=rule_obj, rule_string=rule_string)
 
     if st.button("Create rule"):
@@ -828,64 +843,15 @@ def rule_maker(codexkg):
         st.write(answers)
 
 
-
-    # st.subheader(query)
-
-    # Given the data, define a rule..
-    # A rule defines a relationship between two entities, based on condtions
-
-    # So for our simple example...
-
-    # if company a produce a product with the word widget
-    # if compnay b produces a product with the word widget
-    # and a != b
-
-    # then a and b are competitors
-
-    # Our graql for this will be...
-    # match $Company isa Company; $Product isa Product, has name $Product_name;(produces: $Company, produced: $Product) isa Productize;{ $Product_name contains "widget";};get;
-    #
-
-    # define
-    # RULE_NAME sub rule,
-    # when {
-    #  match $Company isa Company; $Product isa Product, has name $Product_name;(produces: $Company, produced: $Product) isa Productize;{ $Product_name contains "widget";};
-
-    #
-    #      },
-    # then {
-    #
-    # };
-
-    # example graql
-
-    # define
-
-    # people-with-same-parents-are-siblings sub rule,
-    # when {
-    #     (mother: $m, $x) isa parentship;
-    #     (mother: $m, $y) isa parentship;
-    #     (father: $f, $x) isa parentship;
-    #     (father: $f, $y) isa parentship;
-    #     $x != $y;
-    # }, then {
-    #     (sibling: $x, sibling: $y) isa siblings;
-    # };
-
-    #
-
-
-
 def raw_query(codexkg):
 
-
-    query_types = ["read","write"]
-    mode = st.selectbox("Select query type",query_types)
+    query_types = ["read", "write"]
+    mode = st.selectbox("Select query type", query_types)
 
     query = st.text_input("Enter Query")
 
     if st.button("Do query"):
-        answers = codexkg.raw_graql(query,mode)
+        answers = codexkg.raw_graql(query, mode)
         st.write(answers)
 
 
@@ -913,10 +879,8 @@ def main():
         # show ruler maker
         rule_maker(codexkg)
 
-        #raw query
+        # raw query
         raw_query(codexkg)
-
-
 
 
 if __name__ == "__main__":
