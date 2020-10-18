@@ -13,15 +13,6 @@ logging.basicConfig(
 )
 
 
-# # grakn datatypes
-# data_type_match = {}
-# data_type_match["string"] = DataType.STRING
-# data_type_match["long"] = DataType.LONG
-# data_type_match["double"] = DataType.DOUBLE
-# data_type_match["date"] = DataType.DATE
-# data_type_match["boolean"] = DataType.BOOLEAN
-
-
 def turn_value_type(val: ValueType):
     """
     Purpose:
@@ -792,6 +783,7 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
         ent_map: Answers to the queries by entity
     """
     ent_map = {}
+    answer_list = []
 
     with session.transaction().read() as read_transaction:
         answer_iterator = read_transaction.query(graql_query, explain=True)
@@ -826,54 +818,61 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
 
                             ent_map[key]["concepts"].append(ent_obj)
 
-                    if answer.has_explanation():
-                        explanation = answer.explanation()
-                        explanation_map = {}
-                        logging.info(explanation.get_answers())
+                        if answer.has_explanation():
+                            explanation = answer.explanation()
+                            explanation_map = {}
+                            logging.info(explanation.get_answers())
 
-                        for exp_concept in explanation.get_answers():
-                            logging.info(exp_concept.map())
+                            for exp_concept in explanation.get_answers():
+                                logging.info(exp_concept.map())
 
-                            concept_keys = list(exp_concept.map().keys())
+                                concept_keys = list(exp_concept.map().keys())
 
-                            for concept_key in concept_keys:
-                                logging.info(concept_key)
+                                for concept_key in concept_keys:
+                                    logging.info(concept_key)
 
-                                curr_concept = exp_concept.map().get(concept_key)
-                                cur_val = read_transaction.get_concept(curr_concept.id)
+                                    curr_concept = exp_concept.map().get(concept_key)
+                                    cur_val = read_transaction.get_concept(
+                                        curr_concept.id
+                                    )
 
-                                # check if attr
-                                explanation_map[concept_key] = {}
+                                    # check if attr
+                                    explanation_map[concept_key] = {}
 
-                                if cur_val.is_attribute():
-                                    explanation_map[concept_key][
-                                        cur_val.type().label()
-                                    ] = cur_val.value()
-
-                                else:
-                                    attr_iterator = cur_val.attributes()
-                                    for attr in attr_iterator:
-                                        logging.info(attr.value())
+                                    if cur_val.is_attribute():
                                         explanation_map[concept_key][
-                                            attr.type().label()
-                                        ] = attr.value()
+                                            cur_val.type().label()
+                                        ] = cur_val.value()
 
-                        ent_map[key]["explanation"] = explanation_map
+                                    else:
+                                        attr_iterator = cur_val.attributes()
+                                        for attr in attr_iterator:
+                                            logging.info(attr.value())
+                                            explanation_map[concept_key][
+                                                attr.type().label()
+                                            ] = attr.value()
+
+                            ent_map[key]["explanation"] = explanation_map
+                            answer_list.append(ent_map)
 
                     else:
 
                         attr_iterator = cur_val.attributes()
+                        concept_keys = list(answer.map().keys())
+                        logging.info(concept_keys)
 
                         for attr in attr_iterator:
                             ent_obj[attr.type().label()] = attr.value()
 
-                        ent_map[key].append(ent_obj)
+                        ent_map[key]["concepts"].append(ent_obj)
+
+                        answer_list.append(ent_map)
 
             except Exception as error:
                 logging.error(error)
 
     logging.info(ent_map)
-    return ent_map
+    return answer_list
 
 
 def run_compute_query(session, graql_query: str) -> dict:

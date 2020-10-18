@@ -79,6 +79,22 @@ class CodexKg:
     #         logging.error(error)
     #         return -1
 
+    def get_keyspaces(self) -> list:
+        """
+        Purpose:
+            Get all Grakn keyspaces
+        Args:
+            N/A
+        Returns:
+            List of keyspaces
+        """
+        try:
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                return client.keyspaces().retrieve()
+        except Exception as error:
+            logging.error(error)
+            return []
+
     def create_db(self, db_name: str) -> int:
         """
         Purpose:
@@ -93,8 +109,11 @@ class CodexKg:
         # start session create new db
         try:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
-                client.session(keyspace=db_name)
+                logging.info(f"making key space...{db_name}")
+                client.session(keyspace=str(db_name))
                 self.keyspace = db_name
+
+                logging.info("key space made")
 
                 # check if keyspace exists in redis
                 key_prefix = "grakn_keyspace_"
@@ -116,7 +135,6 @@ class CodexKg:
                     blank_keyspace["entity_map"] = {}
                     blank_keyspace["rel_map"] = {}
                     blank_keyspace["rules_map"] = {}
-                    # TODO add rules map
                     self.cache.set(rkey, json.dumps(blank_keyspace))
 
                 return 0
@@ -342,17 +360,21 @@ class CodexKg:
     # - find - done
     # - compute - done
     # - cluster - done
+
+    # create rules - done :)
+    # re org streamlit app - done
+    # show graph? codex_viz
+
     # "real data"
     # topics blobls and tweets?
     #  topics
     #  tweets - text, char length, has_link, is_retweet,
     #  user - name, num_followers, following, verified
-    # create rules - done :)
-    # re org streamlit app
+
     # date quieres - check if string matches date format, if not then its a string
     # not quieres?
-    # show graph? codex_viz
+    # api?
+
     # biz case - shower
     # show secondary entity for rel searches?
-    # api?
     # import entites/rels?

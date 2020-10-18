@@ -42,7 +42,13 @@ def codex_entities(codexkg):
 
     # show current entities
 
-    st.header("Current Entities")
+    st.header("Entites")
+
+    st.markdown(
+        "An entity is a thing with a distinct existence in the domain. For example, `organisation`, `location` and `person`. The existence of each of these entities is independent of any other concept in the domain."
+    )
+
+    st.subheader("Current Entities")
 
     for key in codexkg.entity_map.keys():
         curr_entity = codexkg.entity_map[key]
@@ -76,11 +82,13 @@ def codex_entities(codexkg):
 
 def codex_rels(codexkg):
 
-    # show current entities
+    st.header("Relationships")
 
-    st.header("Current Relationships")
+    st.markdown(
+        "A relation describes how two or more things are in some way connected to each other. For example, `friendship` and `employment`. Each of these relations must relate to roles that are played by something else in the domain. In other words, relations are dependent on the existence of at least two other things."
+    )
 
-    # {'Proudctize': {'rel1': {'role': 'produces', 'entity': 'Company', 'key': 'name', 'key_type': 'string'}, 'rel2': {'role': 'produced', 'entity': 'Product', 'key': 'name', 'key_type': 'string'}, 'cols': {'codex_details': 'string', 'note': {'type': 'string'}}}}
+    st.subheader("Current Relationships")
 
     for key in codexkg.rel_map.keys():
         curr_rel = codexkg.rel_map[key]
@@ -376,7 +384,7 @@ def find_action(codexkg):
 
     # st.write(str(curr_query))
 
-    st.write(codex_query_list)
+    # st.write(codex_query_list)
 
     st.header(query_text)
     if st.button("Query"):
@@ -669,6 +677,8 @@ def codex_reasoner(codexkg):
     st.header("Reasoner")
     st.subheader("Ask and you shall receive")
 
+    st.markdown("The Reasoner allows you to make queries to find data")
+
     # st.write(codexkg.entity_map)
     # st.write(codexkg.rel_map)
 
@@ -678,18 +688,27 @@ def codex_reasoner(codexkg):
     action = st.selectbox("Select Action", actions)
 
     if action == "Find":
+        st.markdown("This query will find concepts that match your input condtions")
         find_action(codexkg)
 
     if action == "Reason":
+        st.markdown("This query will find relationships based on your rules")
         handle_rule_query(codexkg)
 
     if action == "Compute":
+        st.markdown("This query will calculate statistical values over your data")
         compute_action(codexkg)
 
     if action == "Centrality":
+        st.markdown(
+            "This query will find the most important instances in your data or a subset."
+        )
         compute_centrality(codexkg)
 
     if action == "Cluster":
+        st.markdown(
+            "This query will identify clusters of interconnected instances or those that are tightly linked within a network."
+        )
         compute_cluster(codexkg)
 
 
@@ -731,26 +750,11 @@ def rule_action(codexkg, rule_num):
     except:
         query_text = "Enter Query:"
 
-    # make a codex_query object here
-    # curr_query = CodexQueryFind(concepts=codex_query_list, query_string=query_text)
-
-    # st.write(str(curr_query))
-
-    st.write(concept_json)
+    # st.write(concept_json)
 
     st.header(query_text)
 
     return concept_json
-    # if st.button("Query"):
-    #     st.success("Doing query")
-    #     answers = codexkg.query(curr_query)
-
-    #     for key in answers.keys():
-    #         st.subheader(key)
-    #         if answers[key] is None:
-    #             st.error("No Matches for Query")
-    #         else:
-    #             st.write(answers[key])
 
 
 def make_rule_string(rule_obj):
@@ -810,18 +814,23 @@ def rule_maker(codexkg):
 
     st.header("Rule Maker")
     st.subheader("lets make some rules")
+    st.markdown(
+        "Rules look for a given pattern in the dataset and when found, create the given queryable relation"
+    )
 
     rule_name = st.text_input("Enter rule_name")
 
     # cond 1
+    st.markdown("Enter condtions for the first concept")
     rule_cond1 = rule_action(codexkg, 1)
 
     # cond 2
+    st.markdown("Enter condtions for the second concept")
     rule_cond2 = rule_action(codexkg, 2)
 
     # query =f"define {rule_name}  sub rule,"
 
-    st.header("Rule Object")
+    # st.header("Rule Object")
 
     rule_obj = {}
 
@@ -829,7 +838,7 @@ def rule_maker(codexkg):
     rule_obj["cond1"] = rule_cond1
     rule_obj["cond2"] = rule_cond2
 
-    st.write(rule_obj)
+    # st.write(rule_obj)
 
     rule_string = make_rule_string(rule_obj)
 
@@ -845,6 +854,10 @@ def rule_maker(codexkg):
 
 def raw_query(codexkg):
 
+    st.header("Raw graql queries")
+
+    st.markdown("This for entering raw graql queries")
+
     query_types = ["read", "write"]
     mode = st.selectbox("Select query type", query_types)
 
@@ -855,32 +868,158 @@ def raw_query(codexkg):
         st.write(answers)
 
 
+def ontology_maker_app(codexkg):
+
+    st.header("Ontology Maker")
+    st.subheader("Define your schema")
+
+    st.markdown("The Ontology Maker allows you to define how your data is structured")
+
+    options = ["Entites", "Relationships"]
+    selected_option = st.selectbox("Select concept", options)
+
+    if selected_option == "Entites":
+        # show entities
+        codex_entities(codexkg)
+
+    elif selected_option == "Relationships":
+        # show rels
+        codex_rels(codexkg)
+
+
+# user opens up codex
+# auto connect to localhost, have expander setup options
+def get_codex_keyspaces():
+
+    st.sidebar.subheader("Here are options to configure the Grakn and Redis Databases")
+    expander = st.sidebar.beta_expander("Database Options")
+
+    uri = expander.text_input("Grakn uri", value="localhost:48555")
+    credentials = expander.text_input("Grakn Password")
+    redis_host = expander.text_input("Redis Host", value="localhost")
+    redis_port = expander.number_input("Redis Port", min_value=1, value=6379, step=1)
+    redis_db = expander.number_input("Redis db", min_value=0, value=0, step=1)
+    redis_password = expander.text_input("Redis Password")
+
+    if redis_password == "":
+        redis_password = None
+
+    if credentials == "":
+        credentials = None
+
+    codexkg = CodexKg(
+        uri=uri,
+        credentials=credentials,
+        redis_host=redis_host,
+        redis_port=redis_port,
+        redis_db=redis_db,
+        redis_password=redis_password,
+    )
+
+    status_container = st.empty()
+
+    # then get a list of dbs
+    select_proj = st.empty()
+    keyspaces = codexkg.get_keyspaces()
+    keyspace = select_proj.selectbox("Select Project", keyspaces)
+
+    # connect to keyspace
+    codexkg.create_db(keyspace)
+
+    # TODO show graph of key space
+    apps = ["Ontology Maker", "Reasoner", "Rules", "Graql"]
+
+    st.sidebar.header(f"Codex Apps")
+    app = st.sidebar.selectbox("Select App", apps)
+
+    if app == "Ontology Maker":
+        ontology_maker_app(codexkg)
+
+    if app == "Reasoner":
+        codex_reasoner(codexkg)
+
+    if app == "Rules":
+        rule_maker(codexkg)
+
+    if app == "Graql":
+        raw_query(codexkg)
+
+    # create new project
+    st.sidebar.subheader("Create a new Project")
+
+    new_project = st.sidebar.beta_expander("New Project")
+    new_project_name = new_project.text_input("Project Name")
+
+    if new_project.button("Create Project"):
+
+        if new_project_name in keyspaces:
+            st.warning(f"Project {new_project_name} already exists")
+            return
+
+        try:
+            codexkg.create_db(str(new_project_name))
+            keyspaces = codexkg.get_keyspaces()
+            select_proj.selectbox("Select Project", keyspaces)
+            st.balloons()
+            status_container.success(f"{new_project_name} created")
+        except Exception as error:
+            st.error(error)
+            st.error(f"Could not create project {new_project_name}")
+
+    st.sidebar.subheader(f"Delete Project {keyspace}")
+    keyspace_delete_confirm = st.sidebar.text_input("Type project name to confirm")
+    if keyspace_delete_confirm == keyspace:
+        if st.sidebar.button("Delete Keyspace"):
+            codexkg.delete_db(keyspace)
+
+            keyspaces = codexkg.get_keyspaces()
+            select_proj.selectbox("Select Project", keyspaces)
+            st.balloons()
+            status_container.success(f"{keyspace} deleted")
+
+    # show_ont, show_reason, show_rules = st.beta_columns(3)
+
+    # with show_ont:
+    #     st.header("Ontology Maker")
+    #     st.subheader("Define your data schema")
+
+    # with show_reason:
+    #     st.header("Query")
+    #     st.subheader("Search your data")
+
+    # with show_rules:
+    #     st.header("Infer")
+    #     st.subheader("Set up rules for Automated Reasioning")
+
+
 def main():
 
     st.title("Codex")
     st.header("Codex allows you to gain insights from your data")
 
-    keyspace = st.text_input("Enter your project name")
+    get_codex_keyspaces()
 
-    if keyspace is not "":
-        codexkg = CodexKg()
-        codexkg.create_db(keyspace)
-        main_menu(codexkg, keyspace)
+    # keyspace = st.text_input("Enter your project name")
 
-        # show entities
-        codex_entities(codexkg)
+    # if keyspace is not "":
+    #     codexkg = CodexKg()
+    #     codexkg.create_db(keyspace)
+    #     main_menu(codexkg, keyspace)
 
-        # show rels
-        codex_rels(codexkg)
+    #     # show entities
+    #     codex_entities(codexkg)
 
-        # show reasoner
-        codex_reasoner(codexkg)
+    #     # show rels
+    #     codex_rels(codexkg)
 
-        # show ruler maker
-        rule_maker(codexkg)
+    #     # show reasoner
+    #     codex_reasoner(codexkg)
 
-        # raw query
-        raw_query(codexkg)
+    #     # show ruler maker
+    #     rule_maker(codexkg)
+
+    #     # raw query
+    #     raw_query(codexkg)
 
 
 if __name__ == "__main__":
