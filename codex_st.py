@@ -6,7 +6,7 @@ import uuid
 import pandas as pd
 import streamlit as st
 
-
+import codex_viz as viz
 from codex import CodexKg
 from codex import CodexQueryFind, CodexQueryCompute, CodexQueryCluster, CodexQueryRule
 
@@ -388,8 +388,10 @@ def find_action(codexkg):
 
     st.header(query_text)
     if st.button("Query"):
-        st.success("Doing query")
-        answers = codexkg.query(curr_query)
+
+
+        with st.spinner("Doing query..."):
+            answers = codexkg.query(curr_query)
 
         for key in answers.keys():
             st.subheader(key)
@@ -492,14 +494,18 @@ def compute_cluster(codexkg):
     else:
         st.error("Unknown type")
 
-    st.write(cluster_obj)
+    #st.write(cluster_obj)
     st.header(query_string)
     curr_query = CodexQueryCluster(query=cluster_obj)
 
     if st.button("Query"):
         st.success("Doing query")
-        answers = codexkg.query(curr_query)
-        st.write(answers)
+
+        with st.spinner("Doing query..."):
+            answers = codexkg.query(curr_query)
+        # st.write(answers)
+
+        viz.cluster_graph(answers,ents,rels,codexkg)
 
 
 def compute_centrality(codexkg):
@@ -576,14 +582,17 @@ def compute_centrality(codexkg):
 
         cluster_obj["query_string"] = query_string
 
-    st.write(cluster_obj)
+    #st.write(cluster_obj)
     st.header(query_string)
     curr_query = CodexQueryCluster(query=cluster_obj)
 
     if st.button("Query"):
-        st.success("Doing query")
-        answers = codexkg.query(curr_query)
-        st.write(answers)
+        #st.success("Doing query")
+        with st.spinner("Doing query..."):
+            answers = codexkg.query(curr_query)
+        #st.write(answers)
+
+        viz.cluster_graph(answers,ents,rels,codexkg)
 
 
 def compute_action(codexkg):
@@ -658,8 +667,9 @@ def compute_action(codexkg):
     curr_query = CodexQueryCompute(queries=compute_obj)
 
     if st.button("Query"):
-        st.success("Doing query")
-        answers = codexkg.query(curr_query)
+
+        with st.spinner("Doing query..."):
+            answers = codexkg.query(curr_query)
         st.write(answers)
 
         # for key in answers.keys():
@@ -887,6 +897,21 @@ def ontology_maker_app(codexkg):
         codex_rels(codexkg)
 
 
+def graph_codex_ont(codexkg):
+
+
+    ents = codexkg.entity_map
+    rels = codexkg.rel_map
+    keyspace = codexkg.keyspace
+
+    viz.ent_rel_graph(ents,rels,keyspace)
+
+
+
+
+
+
+
 # user opens up codex
 # auto connect to localhost, have expander setup options
 def get_codex_keyspaces():
@@ -925,6 +950,11 @@ def get_codex_keyspaces():
 
     # connect to keyspace
     codexkg.create_db(keyspace)
+
+
+    graph_codex_ont(codexkg)
+
+    #show codex_grapj
 
     # TODO show graph of key space
     apps = ["Ontology Maker", "Reasoner", "Rules", "Graql"]
