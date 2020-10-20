@@ -479,6 +479,7 @@ def rule_query(session, query_object: dict) -> dict:
     rules_map["rule_string"] = query_object.rule_string
     rules_map["cond1"] = cond1
     rules_map["cond2"] = cond2
+    rules_map["rule_string_ans"] = query_object.rule_string_ans
 
     return rules_map
 
@@ -725,11 +726,11 @@ def run_cluster_query(session, graql_query: str, concepts: dict) -> dict:
                         rel_obj[attr.type().label()] = attr.value()
                     codex_details = json.loads(rel_obj["codex_details"])
 
-                    logging.info("Codex Details:")
-                    logging.info(codex_details)
+                    # logging.info("Codex Details:")
+                    # logging.info(codex_details)
 
                     rel_obj[codex_details["rel1_role"]] = codex_details["rel1_value"]
-                    rel_obj[codex_details["rel1_role"]] = codex_details["rel2_value"]
+                    rel_obj[codex_details["rel2_role"]] = codex_details["rel2_value"]
 
                     connected_map[curr_measurement]["Rels"].append(rel_obj)
                     ent_map[concept]["data"][curr_measurement].append(rel_obj)
@@ -782,26 +783,30 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
     Returns:
         ent_map: Answers to the queries by entity
     """
-    ent_map = {}
-    answer_list = []
 
     with session.transaction().read() as read_transaction:
         answer_iterator = read_transaction.query(graql_query, explain=True)
+        ent_map = {}
+        answer_list = []
+        answer_counter = 0
+
         for answer in answer_iterator:
             try:
 
                 answer_concepts = list(answer.map().keys())
 
-                logging.info(answer_concepts)
+                # logging.info(answer_concepts)
 
-                for key in answer_concepts:
+                for key_con in answer_concepts:
+
+                    key = f"{key_con}_{answer_counter}"
 
                     ent_map[key] = {}
                     ent_map[key]["concepts"] = []
 
                     ent_obj = {}
-                    curr_ent = answer.map().get(key)
-                    logging.info(key)
+                    curr_ent = answer.map().get(key_con)
+                    # logging.info(key)
 
                     cur_val = read_transaction.get_concept(curr_ent.id)
 
@@ -813,7 +818,7 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
                             attr_iterator = rel.attributes()
 
                             for attr in attr_iterator:
-                                logging.info(attr.value())
+                                # logging.info(attr.value())
                                 ent_obj[attr.type().label()] = attr.value()
 
                             ent_map[key]["concepts"].append(ent_obj)
@@ -821,15 +826,15 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
                         if answer.has_explanation():
                             explanation = answer.explanation()
                             explanation_map = {}
-                            logging.info(explanation.get_answers())
+                            # logging.info(explanation.get_answers())
 
                             for exp_concept in explanation.get_answers():
-                                logging.info(exp_concept.map())
+                                # logging.info(exp_concept.map())
 
                                 concept_keys = list(exp_concept.map().keys())
 
                                 for concept_key in concept_keys:
-                                    logging.info(concept_key)
+                                    # logging.info(concept_key)
 
                                     curr_concept = exp_concept.map().get(concept_key)
                                     cur_val = read_transaction.get_concept(
@@ -847,31 +852,52 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
                                     else:
                                         attr_iterator = cur_val.attributes()
                                         for attr in attr_iterator:
-                                            logging.info(attr.value())
+                                            # logging.info(attr.value())
                                             explanation_map[concept_key][
                                                 attr.type().label()
                                             ] = attr.value()
 
                             ent_map[key]["explanation"] = explanation_map
-                            answer_list.append(ent_map)
+                            logging.info("Here is explnation")
+                            logging.info(ent_map)
+                            logging.info("")
+                            # answer_list.append(ent_map)
+
+                            logging.info("Here is list before")
+                            logging.info(answer_list)
+                            logging.info("")
+                            if ent_map not in answer_list:
+                                answer_list.append(ent_map)
+
+                            logging.info("Here is list after")
+                            logging.info(answer_list)
+                            logging.info("")
+
+                            answer_counter += 1
 
                     else:
 
                         attr_iterator = cur_val.attributes()
                         concept_keys = list(answer.map().keys())
-                        logging.info(concept_keys)
+                        # logging.info(concept_keys)
 
                         for attr in attr_iterator:
                             ent_obj[attr.type().label()] = attr.value()
 
                         ent_map[key]["concepts"].append(ent_obj)
 
+                        logging.error("Tdo we even come here?")
+
                         answer_list.append(ent_map)
 
+                        answer_counter += 1
+
             except Exception as error:
+                logging.error("TAz dingo")
                 logging.error(error)
 
-    logging.info(ent_map)
+    logging.info("Here is everything")
+    logging.info(answer_list)
     return answer_list
 
 

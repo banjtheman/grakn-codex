@@ -363,7 +363,7 @@ class CodexKg:
 
     # create rules - done :)
     # re org streamlit app - done
-    # show graph? codex_viz
+    # show graph? codex_viz - done
 
     # "real data"
     # topics blobls and tweets?

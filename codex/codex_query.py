@@ -94,8 +94,6 @@ class CodexQueryCluster(CodexQuery):
         return f"{self.query}"
 
 
-
-
 class CodexQueryRule(CodexQuery):
 
     action = "Rule"
@@ -104,11 +102,13 @@ class CodexQueryRule(CodexQuery):
         self,
         rule: dict,
         rule_string: str,
+        rule_string_ans: str,
     ) -> None:
         logging.info("Created codex query rule")
 
         self.rule = rule
         self.rule_string = rule_string
+        self.rule_string_ans = rule_string_ans
 
     def __repr__(self):
         return f"{self.rule_string}"

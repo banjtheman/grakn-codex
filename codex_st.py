@@ -35,7 +35,12 @@ def plural(noun):
 @st.cache(allow_output_mutation=True)
 def cache_df(entity_csv):
     df = pd.read_csv(entity_csv)
-    return df, df.columns
+    return df
+
+
+@st.cache(allow_output_mutation=True)
+def save_cols(cols):
+    return cols
 
 
 def codex_entities(codexkg):
@@ -71,13 +76,17 @@ def codex_entities(codexkg):
     entity_csv = new_entity.file_uploader("Entity CSV", type="csv")
 
     if entity_csv is not None:
-        df, cols = cache_df(entity_csv)
+        df = cache_df(entity_csv)
+        cols = save_cols(df.columns)
         new_entity.write(df)
 
         entity_key = new_entity.selectbox("Enter key", cols)
 
         if new_entity.button("Create entity"):
-            codexkg.create_entity(df, entity_name, entity_key)
+            with st.spinner("Creating entity"):
+                codexkg.create_entity(df, entity_name, entity_key)
+                st.balloons()
+                st.success(f"Entity {entity_name} created")
 
 
 def codex_rels(codexkg):
@@ -116,7 +125,8 @@ def codex_rels(codexkg):
     ents = list(codexkg.entity_map.keys())
 
     if rel_csv is not None:
-        df, cols = cache_df(rel_csv)
+        df = cache_df(rel_csv)
+        cols = save_cols(df.columns)
         new_rel.write(df)
 
         rel1 = new_rel.selectbox("Enter Relationship 1", ents)
@@ -128,7 +138,15 @@ def codex_rels(codexkg):
         st.write(rel2 + " " + cols[1])
 
         if new_rel.button("Create relationship"):
-            codexkg.create_relationship(df, rel_name, rel1, rel2)
+
+            with st.spinner("Creating relationship..."):
+                try:
+                    codexkg.create_relationship(df, rel_name, rel1, rel2)
+                    st.balloons()
+                    st.success("Relationship created")
+                except Exception as error:
+                    st.error(error)
+                    st.error("Failed to create Relationship")
 
     # codexkg.create_relationship(
     #     "sample_data/company_sample.csv", "Proudctize", "Company", "Product"
@@ -326,14 +344,58 @@ def handle_rule_query(codexkg):
 
     rules = list(codexkg.rules_map.keys())
     concept = st.selectbox("Select relationship", rules)
+    # st.write(codexkg.rules_map[concept])
 
     rules_string = codexkg.rules_map[concept]["rule_string"]
     st.subheader(rules_string)
     query = f"match $x isa {concept}; get;"
 
+    rule_ans = codexkg.rules_map[concept]["rule_string_ans"]
+
+    # try:
+    #     rule_ans = codexkg.rules_map[concept]["rule_string_ans"]
+    # except:
+    #     rule_ans = "Company_A produces Product_name_X that has a name that Contains widget. Company_B produces Product_name_Y that has a name that Contains widget."
+
+    rule_resp = []
+
     if st.button(f"Find {concept} relationships"):
         answers = codexkg.raw_graql(query, "read")
-        st.write(answers)
+        # st.write(answers)
+        answer_counter = 0
+        answer = answers[0]
+        answer_keys = list(answers[0].keys())
+
+        for key_con in answer_keys:
+
+            explanation = answer[key_con]["explanation"]
+            exp_keys = list(explanation.keys())
+            rule_new = rule_ans
+
+            for exp_key in exp_keys:
+
+                if exp_key in rule_ans:
+                    concept = exp_key.split("_")[0]
+
+                    if concept in list(codexkg.entity_map.keys()):
+                        concept_key = codexkg.entity_map[concept]["key"]
+
+                        rule_new = rule_new.replace(
+                            exp_key, explanation[exp_key][concept_key]
+                        )
+
+                        # st.write(f"{exp_key}: {explanation[exp_key][concept_key]}")
+                        # st.subheader(rule_ans)
+
+            answer_counter += 1
+            if rule_new in rule_resp:
+                continue
+            rule_resp.append(rule_new)
+            col1, col2 = st.beta_columns(2)
+
+            col1.write(answer[key_con]["concepts"][0])
+            col2.write(answer[key_con]["concepts"][1])
+            st.subheader(rule_new)
 
 
 def find_action(codexkg):
@@ -388,7 +450,6 @@ def find_action(codexkg):
 
     st.header(query_text)
     if st.button("Query"):
-
 
         with st.spinner("Doing query..."):
             answers = codexkg.query(curr_query)
@@ -494,18 +555,18 @@ def compute_cluster(codexkg):
     else:
         st.error("Unknown type")
 
-    #st.write(cluster_obj)
+    # st.write(cluster_obj)
     st.header(query_string)
     curr_query = CodexQueryCluster(query=cluster_obj)
 
     if st.button("Query"):
-        st.success("Doing query")
+        # st.success("Doing query")
 
         with st.spinner("Doing query..."):
             answers = codexkg.query(curr_query)
         # st.write(answers)
 
-        viz.cluster_graph(answers,ents,rels,codexkg)
+        viz.cluster_graph(answers, ents, rels, codexkg)
 
 
 def compute_centrality(codexkg):
@@ -521,6 +582,7 @@ def compute_centrality(codexkg):
 
     if action == "degree":
 
+        # TODO look into "All Concepts" not working
         choices = ["All Concepts", "Subgraph", "Given type"]
         choice = st.selectbox("Select Chocie", choices, key="centrality select actions")
 
@@ -582,17 +644,17 @@ def compute_centrality(codexkg):
 
         cluster_obj["query_string"] = query_string
 
-    #st.write(cluster_obj)
+    # st.write(cluster_obj)
     st.header(query_string)
     curr_query = CodexQueryCluster(query=cluster_obj)
 
     if st.button("Query"):
-        #st.success("Doing query")
+        # st.success("Doing query")
         with st.spinner("Doing query..."):
             answers = codexkg.query(curr_query)
-        #st.write(answers)
+        # st.write(answers)
 
-        viz.cluster_graph(answers,ents,rels,codexkg)
+        viz.cluster_graph(answers, ents, rels, codexkg)
 
 
 def compute_action(codexkg):
@@ -613,6 +675,8 @@ def compute_action(codexkg):
     ents = list(codexkg.entity_map.keys())
     rels = list(codexkg.rel_map.keys())
     ents_rels = ents + rels
+
+    query_text_list = []
 
     for action in action_list:
 
@@ -640,7 +704,9 @@ def compute_action(codexkg):
 
             if action == "Count":
                 query_text = f"Compute {action} for {concept}"
-                st.header(query_text)
+
+                query_text_list.append(query_text)
+                # st.header(query_text)
 
                 count_obj = {}
                 count_obj["concept"] = concept
@@ -661,23 +727,32 @@ def compute_action(codexkg):
                     action_obj["query_text"] = query_text
 
                     compute_obj[action].append(action_obj)
-                    st.header(query_text)
+                    # st.header(query_text)
+                    query_text_list.append(query_text)
 
-    st.write(compute_obj)
+    # st.write(compute_obj)
+
+    for text in query_text_list:
+        st.subheader(text)
+
     curr_query = CodexQueryCompute(queries=compute_obj)
 
     if st.button("Query"):
 
         with st.spinner("Doing query..."):
             answers = codexkg.query(curr_query)
-        st.write(answers)
+        # st.write(answers)
 
-        # for key in answers.keys():
-        #     st.subheader(key)
-        #     if answers[key] is None:
-        #         st.error("No Matches for Query")
-        #     else:
-        #         st.write(answers[key])
+        for key in answers.keys():
+
+            answer_map = answers[key][0]
+            # st.write(answer_map)
+            # st.write(answers[key])
+            st.subheader(f"{key}: {answer_map['answer']}")
+            # if answers[key] is None:
+            #     st.error("No Matches for Query")
+            # else:
+            #     st.write(answers[key])
 
     # select int value
 
@@ -762,7 +837,7 @@ def rule_action(codexkg, rule_num):
 
     # st.write(concept_json)
 
-    st.header(query_text)
+    # st.header(query_text)
 
     return concept_json
 
@@ -770,6 +845,7 @@ def rule_action(codexkg, rule_num):
 def make_rule_string(rule_obj):
 
     rule_string = ""
+    rule_string_ans = ""
 
     # check cond1
     rule_name = rule_obj["name"]
@@ -778,6 +854,7 @@ def make_rule_string(rule_obj):
     cond2 = rule_obj["cond2"]
 
     rule_string += f"If {cond1['concept']} A "
+    rule_string_ans += f"{cond1['concept']}_A "
 
     attr_len = len(cond1["attrs"])
     attr_counter = 1
@@ -785,13 +862,20 @@ def make_rule_string(rule_obj):
 
         if "rel_attr" in attr:
             rule_string += f"{attr['rel_attr']} {attr['rel_ent']} X that has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_X that has a {attr['attribute']} {attr['cond']['cond_string']}"
         else:
             rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += (
+                f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            )
 
         if attr_counter == attr_len:
-            rule_string += "."
+            rule_string += ". "
+            rule_string_ans += ". "
+
         else:
             rule_string += " and "
+            rule_string_ans += " and "
 
         attr_counter += 1
 
@@ -799,17 +883,24 @@ def make_rule_string(rule_obj):
     attr_len = len(cond2["attrs"])
     attr_counter = 1
     rule_string += f"If {cond2['concept']} B "
+    rule_string_ans += f"{cond1['concept']}_B "
     for attr in cond2["attrs"]:
 
         if "rel_attr" in attr:
             rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
         else:
             rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += (
+                f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            )
 
         if attr_counter == attr_len:
-            rule_string += "."
+            rule_string += ". "
+            rule_string_ans += ". "
         else:
             rule_string += " and "
+            rule_string_ans += " and "
 
         attr_counter += 1
 
@@ -817,7 +908,7 @@ def make_rule_string(rule_obj):
         f"Then  {cond1['concept']} A and {cond2['concept']} B are {rule_name}"
     )
 
-    return rule_string
+    return rule_string, rule_string_ans
 
 
 def rule_maker(codexkg):
@@ -850,16 +941,25 @@ def rule_maker(codexkg):
 
     # st.write(rule_obj)
 
-    rule_string = make_rule_string(rule_obj)
+    rule_string, rule_string_ans = make_rule_string(rule_obj)
 
     st.header(rule_string)
+    # st.header(rule_string_ans)
 
-    curr_query = CodexQueryRule(rule=rule_obj, rule_string=rule_string)
+    curr_query = CodexQueryRule(
+        rule=rule_obj, rule_string=rule_string, rule_string_ans=rule_string_ans
+    )
 
     if st.button("Create rule"):
-        st.success("Creating rule...")
-        answers = codexkg.query(curr_query)
-        st.write(answers)
+
+        with st.spinner("Creating rule..."):
+            try:
+                _answers = codexkg.query(curr_query)
+                # st.write(answers)
+                st.success("Rule created")
+            except Exception as error:
+                st.error(error)
+                st.error("Failed to create rule")
 
 
 def raw_query(codexkg):
@@ -874,7 +974,8 @@ def raw_query(codexkg):
     query = st.text_input("Enter Query")
 
     if st.button("Do query"):
-        answers = codexkg.raw_graql(query, mode)
+        with st.spinner("Doing query..."):
+            answers = codexkg.raw_graql(query, mode)
         st.write(answers)
 
 
@@ -899,17 +1000,11 @@ def ontology_maker_app(codexkg):
 
 def graph_codex_ont(codexkg):
 
-
     ents = codexkg.entity_map
     rels = codexkg.rel_map
     keyspace = codexkg.keyspace
 
-    viz.ent_rel_graph(ents,rels,keyspace)
-
-
-
-
-
+    viz.ent_rel_graph(ents, rels, keyspace)
 
 
 # user opens up codex
@@ -951,10 +1046,9 @@ def get_codex_keyspaces():
     # connect to keyspace
     codexkg.create_db(keyspace)
 
-
     graph_codex_ont(codexkg)
 
-    #show codex_grapj
+    # show codex_grapj
 
     # TODO show graph of key space
     apps = ["Ontology Maker", "Reasoner", "Rules", "Graql"]
