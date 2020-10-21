@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 from grakn.client import GraknClient
@@ -168,7 +168,9 @@ class CodexKg:
             logging.error(error)
             return -1
 
-    def create_entity(self, df: pd.DataFrame, entity_name: str, entity_key=None) -> int:
+    def create_entity(
+        self, df: pd.DataFrame, entity_name: str, entity_key=None
+    ) -> Tuple[int, str]:
         """
         Purpose:
             Query Grakn
@@ -208,14 +210,14 @@ class CodexKg:
                     # update redis
                     self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
-                    return 0
+                    return 0, "good"
         except Exception as error:
             logging.error(error)
-            return -1
+            return -1, str(error)
 
     def create_relationship(
         self, df: pd.DataFrame, rel_name: str, rel1: str, rel2: str
-    ) -> int:
+    ) -> Tuple[int, str]:
         """
         Purpose:
             Query Grakn
@@ -255,7 +257,7 @@ class CodexKg:
                     self.rel_map[rel_name]["rel2"] = {}
                     self.rel_map[rel_name]["rel2"]["role"] = cols[1]
                     self.rel_map[rel_name]["rel2"]["entity"] = rel2
-                    ent_key = self.entity_map[rel1]["key"]
+                    ent_key = self.entity_map[rel2]["key"]
                     self.rel_map[rel_name]["rel2"]["key"] = ent_key
 
                     if self.rel_map[rel_name]["rel2"]["key"] is not None:
@@ -290,10 +292,10 @@ class CodexKg:
                     # update redis
                     self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
-                    return 0
+                    return 0, "good"
         except Exception as error:
             logging.error(error)
-            return -1
+            return -1, str(error)
 
     def raw_graql(self, graql_string: str, mode: str) -> dict:
         """
@@ -365,7 +367,7 @@ class CodexKg:
     # re org streamlit app - done
     # show graph? codex_viz - done
 
-    # "real data"
+    # "real data" - done
     # topics blobls and tweets?
     #  topics
     #  tweets - text, char length, has_link, is_retweet,
@@ -373,8 +375,10 @@ class CodexKg:
 
     # date quieres - check if string matches date format, if not then its a string
     # not quieres?
-    # api?
+    # api? - This is the api
 
     # biz case - shower
-    # show secondary entity for rel searches?
-    # import entites/rels?
+
+    # generate all quries, use natrual language to make requests
+
+    # import from grakn

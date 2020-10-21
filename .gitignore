@@ -3,6 +3,7 @@
 redis_data/
 data/
 notes.txt
+exp_data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

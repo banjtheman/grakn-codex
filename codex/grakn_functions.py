@@ -132,6 +132,9 @@ def create_relationship_query(entity_map: dict, rel_name: str, rel_map: dict) ->
     return graql_insert_query
 
 
+# define same_loc_not_nan sub relation, relates same_loc_not_nan_relationship_1, relates same_loc_not_nan_relationship_2;Tweet sub entity, plays same_loc_not_nan_relationship_1, plays same_loc_not_nan_relationship_2;Tweet sub entity, plays same_loc_not_nan_relationship_1, plays same_loc_not_nan_relationship_2;same_loc_not_nan-rule sub rule,when {$Tweet_A isa Tweet, has location $Tweet_location_A;{$Tweet_location_A != "nan";};{$Tweet_location_A != "";};$Tweet_B isa Tweet, has location $Tweet_location_B;{$Tweet_location_B != "nan";};{$Tweet_location_B != "";};$Tweet_A != $Tweet_B;},then {(same_loc_not_nan_relationship_1: $Tweet_A, same_loc_not_nan_relationship_2: $Tweet_B) isa same_loc_not_nan;};
+
+
 def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
     """
     Purpose:
@@ -171,6 +174,35 @@ def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
                     f'{{ ${attr_concept}_{curr_attr}{dif_1} contains "{cond_value}";}}'
                 )
                 contain_statements.append(contain_string)
+
+            if cond_type == "Congruent":
+                # {Company_name_X == Company_name_Y};
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                if dif_1 == "_B":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_A == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_Y":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_X == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_A":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_B == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_X":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_Y == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                contain_statements.append(attr_string)
+                # TODO: would we specify?
+                # nan blocker
+                if cond_value == "True":
+                    logging.info("blocking nans")
+
+                    nan_string1 = (
+                        f'not {{ ${attr_concept}_{curr_attr}{dif_1} == "nan";}}'
+                    )
+                    # nan_string2 = f'not {{ ${attr_concept}_{curr_attr}{dif_1} == "";}}'
+
+                    contain_statements.append(nan_string1)
+                    # contain_statements.append(nan_string2)
 
         # if query_check_type == "double" or query_check_type == "long":
         else:
@@ -305,7 +337,8 @@ def compute_query(session, query_object: dict) -> dict:
 
     for action in queries:
 
-        compute_results[action] = []
+        if action not in compute_results:
+            compute_results[action] = []
 
         if action == "Count":
 
@@ -368,6 +401,8 @@ def attr_make_rule_query(concept: str, dif_1: str, dif_2: str) -> str:
 
     for attr in concept["attrs"]:
 
+        logging.info(attr)
+
         if "rel_ent" in attr:
             rel_query_string = f"; ${attr['rel_ent']}{dif_2} isa {attr['rel_ent']}"
             rel_query_string += f", has {attr['attribute']}"
@@ -391,7 +426,8 @@ def attr_make_rule_query(concept: str, dif_1: str, dif_2: str) -> str:
         else:
             grakn_query += f", has {attr['attribute']}"
 
-            grakn_query_cond, contains_array = find_cond_checker(attr)
+            # grakn_query_cond, contains_array = find_cond_checker(attr)
+            grakn_query_cond, contains_array = find_cond_checker_rule(attr, dif_1)
 
             grakn_query += grakn_query_cond
             contain_statements.extend(contains_array)
@@ -744,14 +780,14 @@ def run_cluster_query(session, graql_query: str, concepts: dict) -> dict:
                     attr_obj["value"] = node_val
                     connected_map[curr_measurement]["Attrs"].append(attr_obj)
 
-                print("end of loop")
-                print(ent_map)
-                print(clusters)
+                # print("end of loop")
+                # print(ent_map)
+                # print(clusters)
 
     cluster_obj["ent_map"] = ent_map
     cluster_obj["clusters"] = clusters
-    logging.info("here is cluster obj")
-    logging.info(cluster_obj)
+    # logging.info("here is cluster obj")
+    # logging.info(cluster_obj)
 
     return cluster_obj
 
@@ -858,20 +894,20 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
                                             ] = attr.value()
 
                             ent_map[key]["explanation"] = explanation_map
-                            logging.info("Here is explnation")
-                            logging.info(ent_map)
-                            logging.info("")
+                            # logging.info("Here is explnation")
+                            # logging.info(ent_map)
+                            # logging.info("")
                             # answer_list.append(ent_map)
 
-                            logging.info("Here is list before")
-                            logging.info(answer_list)
-                            logging.info("")
+                            # logging.info("Here is list before")
+                            # logging.info(answer_list)
+                            # logging.info("")
                             if ent_map not in answer_list:
                                 answer_list.append(ent_map)
 
-                            logging.info("Here is list after")
-                            logging.info(answer_list)
-                            logging.info("")
+                            # logging.info("Here is list after")
+                            # logging.info(answer_list)
+                            # logging.info("")
 
                             answer_counter += 1
 
@@ -893,11 +929,11 @@ def raw_query_read_grakn(session, graql_query: str) -> None:
                         answer_counter += 1
 
             except Exception as error:
-                logging.error("TAz dingo")
+                # logging.error("TAz dingo")
                 logging.error(error)
 
-    logging.info("Here is everything")
-    logging.info(answer_list)
+    # logging.info("Here is everything")
+    # logging.info(answer_list)
     return answer_list
 
 
@@ -1070,12 +1106,17 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict) -
     )
 
     # check key type
-    if rel_map["rel1"]["key_type"] == "string":
+    if rel_map["rel1"]["key_type"] == "string" or rel_map["rel1"]["key_type"] == "bool":
         graql_insert_query += (
             ", has " + str(rel_map["rel1"]["key"]) + ' "' + str(row[rel1_role]) + '";'
         )
 
-    # TODO what is query if not a string?
+    if rel_map["rel1"]["key_type"] == "long" or rel_map["rel1"]["key_type"] == "double":
+        graql_insert_query += (
+            ", has " + str(rel_map["rel1"]["key"]) + " " + str(row[rel1_role]) + ";"
+        )
+
+    # TODO what is query key is a date?
 
     # rel 2
     graql_insert_query += (
@@ -1083,9 +1124,14 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict) -
     )
 
     # check key type
-    if rel_map["rel2"]["key_type"] == "string":
+    if rel_map["rel2"]["key_type"] == "string" or rel_map["rel2"]["key_type"] == "bool":
         graql_insert_query += (
             ", has " + str(rel_map["rel2"]["key"]) + ' "' + str(row[rel2_role]) + '";'
+        )
+
+    if rel_map["rel2"]["key_type"] == "long" or rel_map["rel2"]["key_type"] == "double":
+        graql_insert_query += (
+            ", has " + str(rel_map["rel2"]["key"]) + " " + str(row[rel2_role]) + ";"
         )
 
     # the insert statement
@@ -1222,14 +1268,18 @@ def create_entity_query(df: pd.DataFrame, entity_name: str, entity_key=None) -> 
     added_key = False
 
     for attr in df.columns:
-
         # check if attr is key
         if entity_key is not None and not added_key:
             if str(attr) == entity_key:
                 graql_insert_query += "key " + str(attr)
                 added_key = True
+            else:
+                graql_insert_query += "has " + str(attr)
+
         else:
             graql_insert_query += "has " + str(attr)
+
+        logging.info(graql_insert_query)
 
         # check if last
         if attr_counter == attr_length:
@@ -1275,7 +1325,10 @@ def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict) -
 
     for col in current_ent["cols"].keys():
 
-        if current_ent["cols"][col]["type"] == "string":
+        if (
+            current_ent["cols"][col]["type"] == "string"
+            or current_ent["cols"][col]["type"] == "bool"
+        ):
             graql_insert_query += (
                 "has " + str(col) + ' "' + str(sanitize_text(row[col])) + '"'
             )

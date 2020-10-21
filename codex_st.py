@@ -34,7 +34,7 @@ def plural(noun):
 
 @st.cache(allow_output_mutation=True)
 def cache_df(entity_csv):
-    df = pd.read_csv(entity_csv)
+    df = pd.read_csv(entity_csv, index_col=False)
     return df
 
 
@@ -84,9 +84,20 @@ def codex_entities(codexkg):
 
         if new_entity.button("Create entity"):
             with st.spinner("Creating entity"):
-                codexkg.create_entity(df, entity_name, entity_key)
-                st.balloons()
-                st.success(f"Entity {entity_name} created")
+
+                try:
+                    status, message = codexkg.create_entity(df, entity_name, entity_key)
+
+                    if status == 0:
+                        st.balloons()
+                        st.success(f"Entity {entity_name} created")
+                    else:
+                        st.error(message)
+                        st.error("Failed to create entity")
+
+                except Exception as error:
+                    st.error(error)
+                    st.error("Failed to create entity")
 
 
 def codex_rels(codexkg):
@@ -141,9 +152,16 @@ def codex_rels(codexkg):
 
             with st.spinner("Creating relationship..."):
                 try:
-                    codexkg.create_relationship(df, rel_name, rel1, rel2)
-                    st.balloons()
-                    st.success("Relationship created")
+                    status, message = codexkg.create_relationship(
+                        df, rel_name, rel1, rel2
+                    )
+
+                    if status == 0:
+                        st.balloons()
+                        st.success(f"Relationship {rel_name} created")
+                    else:
+                        st.error(message)
+                        st.error("Failed to create entity")
                 except Exception as error:
                     st.error(error)
                     st.error("Failed to create Relationship")
@@ -174,18 +192,32 @@ def cond_setter(
     cond_json = {}
 
     st.subheader(f"{concept}-{attr_name}")
+    # selected_cond = ""
+    # cond_value = ""
+    # cond_string = ""
 
     if attr_type == "string":
-        conds = ["Equals", "Contains"]
+        conds = ["Equals", "Contains", "Congruent"]
         selected_cond = st.selectbox(
             "Select Condition",
             conds,
             key=f"{concept}-{attr_name} {seed} {rule_num} cond checker",
         )
-        cond_value = st.text_input(
-            "Condition Value",
-            key=f"{concept}-{attr_name} {seed} {rule_num}  cond value",
-        )
+
+        if selected_cond is not "Congruent":
+            cond_value = st.text_input(
+                "Condition Value",
+                key=f"{concept}-{attr_name} {seed} {rule_num}  cond value",
+            )
+
+        else:
+            cond_value = str(
+                st.checkbox(
+                    "Block null values?",
+                    key=f"{concept}-{attr_name} {seed} {rule_num}block_null value",
+                )
+            )
+
         cond_string = " that " + selected_cond + " " + cond_value
 
     if attr_type == "long" or attr_type == "double":
@@ -198,6 +230,16 @@ def cond_setter(
         cond_value = st.number_input(
             "Condition Value",
             key=f"{concept}-{attr_name} {seed}  {rule_num} cond value",
+        )
+        cond_string = f" that {selected_cond} {cond_value}"
+
+    if attr_type == "bool":
+        conds = ["True", "False"]
+        selected_cond = "Equals"
+        cond_value = st.selectbox(
+            "Select Condition",
+            conds,
+            key=f"{concept}-{attr_name} {seed} {rule_num} cond checker",
         )
         cond_string = f" that {selected_cond} {cond_value}"
 
@@ -361,7 +403,7 @@ def handle_rule_query(codexkg):
 
     if st.button(f"Find {concept} relationships"):
         answers = codexkg.raw_graql(query, "read")
-        # st.write(answers)
+        st.write(answers)
         answer_counter = 0
         answer = answers[0]
         answer_keys = list(answers[0].keys())
@@ -380,9 +422,12 @@ def handle_rule_query(codexkg):
                     if concept in list(codexkg.entity_map.keys()):
                         concept_key = codexkg.entity_map[concept]["key"]
 
-                        rule_new = rule_new.replace(
-                            exp_key, explanation[exp_key][concept_key]
-                        )
+                        try:
+                            rule_new = rule_new.replace(
+                                str(exp_key), str(explanation[exp_key][concept_key])
+                            )
+                        except:
+                            rule_new = rule_new
 
                         # st.write(f"{exp_key}: {explanation[exp_key][concept_key]}")
                         # st.subheader(rule_ans)
@@ -745,10 +790,12 @@ def compute_action(codexkg):
 
         for key in answers.keys():
 
-            answer_map = answers[key][0]
-            # st.write(answer_map)
-            # st.write(answers[key])
-            st.subheader(f"{key}: {answer_map['answer']}")
+            answer_map = answers[key]
+
+            for answer in answer_map:
+                # st.write(answer_map)
+                # st.write(answers[key])
+                st.subheader(f"{key}: {answer['answer']}")
             # if answers[key] is None:
             #     st.error("No Matches for Query")
             # else:
