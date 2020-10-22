@@ -452,6 +452,8 @@ def find_action(codexkg):
 
     concepts = st.multiselect("Select Concepts", ents_rels)
 
+    st.write(codexkg.entity_map)
+
     # concept_type = ""
     codex_query_list = []
     for concept in concepts:
@@ -491,7 +493,7 @@ def find_action(codexkg):
 
     # st.write(str(curr_query))
 
-    # st.write(codex_query_list)
+    st.write(codex_query_list)
 
     st.header(query_text)
     if st.button("Query"):
