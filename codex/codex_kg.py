@@ -22,6 +22,12 @@ from .grakn_functions import (
 
 from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute, CodexQueryRule
 
+from difflib import SequenceMatcher
+
+def similar(a, b):
+    return SequenceMatcher(None, a, b).ratio()
+
+
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
 )
@@ -165,6 +171,11 @@ class CodexKg:
                     blank_keyspace["rel_map"] = {}
                     blank_keyspace["rules_map"] = {}
                     blank_keyspace["lookup_map"] = {}
+                    blank_keyspace["lookup_map"]["Find"] = {}
+                    blank_keyspace["lookup_map"]["Compute"] = {}
+                    blank_keyspace["lookup_map"]["Cluster"] = {}
+                    blank_keyspace["lookup_map"]["Reason"] = {}
+                    blank_keyspace["lookup_map"]["Center"] = {}
                     blank_keyspace["query_map"] = {}
                     self.cache.set(rkey, json.dumps(blank_keyspace))
 
@@ -659,7 +670,8 @@ class CodexKg:
         for codex_query in codex_query_list:
             curr_keyspace["query_map"][codex_query["query_string"]] = codex_query
 
-        curr_keyspace["lookup_map"][entity_name] = codex_query_lookup
+        #hard code find?
+        curr_keyspace["lookup_map"]["Find"][entity_name] = codex_query_lookup
         # update redis
         self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
@@ -718,7 +730,17 @@ class CodexKg:
 
 
         for codex_query in codex_queries:
-            if curr_query.lower() in  codex_query.lower():
+
+
+
+            sim_score = similar(codex_query,curr_query)
+
+            print(f"{codex_query}: {sim_score}")
+
+
+
+
+            if curr_query.lower() in codex_query.lower():
                 print("boo ya")
                 print(codex_query)
                 query_obj = self.query_map[codex_query]
