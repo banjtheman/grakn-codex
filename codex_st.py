@@ -311,26 +311,63 @@ def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool, rule_num):
                 f"Select Entity {rule_num}", plays_map[selected_attr]
             )
 
-            attr_json["rel_ent"] = selected_ent2
-            attr_json["rel_attr"] = selected_attr
-            rel_name = get_rel_name_from_ents(codexkg, concept, selected_ent2)
-            attr_json["rel_name"] = rel_name
-            attr_json["rel_other"] = codexkg.entity_map[selected_ent2]["rels"][
-                rel_name
-            ]["plays"]
-
-            attr_json["attr_concept"] = selected_ent2
-            attr_string += " " + selected_ent2
-            attrs2 = codexkg.entity_map[selected_ent2]["cols"]
-            attr_list2 = list(attrs2.keys())
-            selected_attr = st.selectbox(f"Select Attribute {rule_num}", attr_list2)
-            attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr]["type"]
-
-            attr_string += " that have a " + selected_attr
-
-            cond_json = cond_setter(
-                attr_type, selected_attr, selected_ent2, "seed2", rule_num
+            with_attr_cond = st.checkbox(
+                "Concept condition?", value=True, key=f"concept cond {rule_num}"
             )
+
+            if with_attr_cond:
+
+                attr_json["rel_ent"] = selected_ent2
+                attr_json["rel_attr"] = selected_attr
+                rel_name = get_rel_name_from_ents(codexkg, concept, selected_ent2)
+                attr_json["rel_name"] = rel_name
+                attr_json["rel_other"] = codexkg.entity_map[selected_ent2]["rels"][
+                    rel_name
+                ]["plays"]
+
+                attr_json["attr_concept"] = selected_ent2
+                attr_string += " " + selected_ent2
+                attrs2 = codexkg.entity_map[selected_ent2]["cols"]
+                attr_list2 = list(attrs2.keys())
+                selected_attr = st.selectbox(f"Select Attribute {rule_num}", attr_list2)
+                attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr][
+                    "type"
+                ]
+
+                attr_string += " that have a " + selected_attr
+
+                cond_json = cond_setter(
+                    attr_type, selected_attr, selected_ent2, "seed2", rule_num
+                )
+            else:
+                attr_json["rel_ent"] = selected_ent2
+                attr_json["rel_attr"] = selected_attr
+                rel_name = get_rel_name_from_ents(codexkg, concept, selected_ent2)
+                attr_json["rel_name"] = rel_name
+                attr_json["rel_other"] = codexkg.entity_map[selected_ent2]["rels"][
+                    rel_name
+                ]["plays"]
+
+                attr_json["attr_concept"] = selected_ent2
+                attr_string += " " + selected_ent2
+                attrs2 = codexkg.entity_map[selected_ent2]["cols"]
+                attr_list2 = list(attrs2.keys())
+                # selected_attr = st.selectbox(f"Select Attribute {rule_num}", attr_list2)
+                # attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr]["type"]
+                attr_string + " that have a " + selected_ent2 + " relationship that "
+
+                cond_json = {}
+
+                attr_type = None
+
+            with_rel_cond = st.checkbox(
+                "Relationship condition?", key=f"rel cond {rule_num}"
+            )
+
+            if with_rel_cond:
+                rel_cond_list = attr_setter(codexkg, rel_name, False, rule_num + 1)
+                attr_json["rel_conds"] = rel_cond_list
+                # st.write(rel_cond_list)
 
         attr_json["cond"] = cond_json
         attr_json["attr_type"] = attr_type
@@ -351,7 +388,15 @@ def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
 
     for attr in attr_obj_list:
 
-        query_string += f"{attr['attr_string']}{attr['cond']['cond_string']}"
+        try:
+            query_string += f"{attr['attr_string']}{attr['cond']['cond_string']}"
+        except:
+            query_string += f"{attr['attr_string']}"
+
+        if "rel_conds" in attr:
+            query_string += " and "
+
+            query_string += query_string_find_maker(attr["rel_name"], attr["rel_conds"])
 
         if not attr_counter == attr_len:
             query_string += " and "

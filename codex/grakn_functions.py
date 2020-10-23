@@ -226,10 +226,15 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
         contain_statements: list of contain queries to run
     """
     query_check_type = attr["attr_type"]
+
+    if not "selected_cond" in attr["cond"]:
+        logging.info("empty cond check")
+        return "", []
     cond_type = attr["cond"]["selected_cond"]
     cond_value = attr["cond"]["cond_value"]
     curr_attr = attr["attribute"]
     attr_concept = attr["attr_concept"]
+    logging.info("loaded all")
 
     grakn_query = ""
 
@@ -550,7 +555,10 @@ def find_query(session, query_object: dict) -> dict:
 
             if "rel_ent" in attr:
                 rel_query_string = f"; ${attr['rel_ent']} isa {attr['rel_ent']}"
-                rel_query_string += f", has {attr['attribute']}"
+
+                # hmm only if attr_type is not null
+                if not attr["attr_type"] is None:
+                    rel_query_string += f", has {attr['attribute']}"
 
                 grakn_query_cond, contains_array = find_cond_checker(attr)
                 rel_query_string += grakn_query_cond
@@ -566,6 +574,23 @@ def find_query(session, query_object: dict) -> dict:
                     + ") isa "
                     + attr["rel_name"]
                 )
+
+                # I would add the with_rel_conds here
+                if "rel_conds" in attr:
+
+                    logging.info("got here")
+                    logging.info(attr["rel_conds"])
+
+                    for rel_cond in attr["rel_conds"]:
+
+                        rel_query_string += f", has {rel_cond['attribute']}"
+
+                        grakn_query_cond, contains_array = find_cond_checker(rel_cond)
+                        rel_query_string += grakn_query_cond
+                        contain_statements.extend(contains_array)
+
+                    logging.info("passed here")
+
                 rel_statements.append(rel_query_string)
 
             else:

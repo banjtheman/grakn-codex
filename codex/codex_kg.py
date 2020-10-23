@@ -24,6 +24,7 @@ from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute, CodexQue
 
 from difflib import SequenceMatcher
 
+
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
@@ -51,7 +52,6 @@ def plural(noun):
     for findpattern, rule in rules:
         if findpattern(noun):
             return rule(noun)
-
 
 
 class CodexKg:
@@ -161,8 +161,10 @@ class CodexKg:
                     self.entity_map = curr_keyspace["entity_map"]
                     self.rel_map = curr_keyspace["rel_map"]
                     self.rules_map = curr_keyspace["rules_map"]
-                    self.query_map = curr_keyspace["query_map"]
-                    self.lookup_map = curr_keyspace["lookup_map"]
+                    self.query_map = {}
+                    self.lookup_map = {}
+                    # self.query_map = curr_keyspace["query_map"]
+                    # self.lookup_map = curr_keyspace["lookup_map"]
 
                 else:
                     logging.info("Creating new keypsace in redis")
@@ -398,7 +400,6 @@ class CodexKg:
             logging.error(error)
             return None
 
-
     def get_rel_name_from_ents(self, rel1: str, rel2: str) -> str:
 
         rels = list(self.rel_map.keys())
@@ -415,13 +416,11 @@ class CodexKg:
 
         return rel_name
 
-
-
     def cond_json_maker(self, cond: str, concept: str, attr_name: str) -> dict:
 
         cond_json = {}
 
-        #cond_value = f"REPLACE_{concept}_{attr_name}"
+        # cond_value = f"REPLACE_{concept}_{attr_name}"
         cond_value = f"CODEX_REPLACE"
         cond_string = " that " + cond + " " + cond_value
 
@@ -450,7 +449,7 @@ class CodexKg:
             for cond in conds:
                 cond_json = self.cond_json_maker(cond, concept, attr_name)
                 cond_list.append(cond_json)
-                
+
         elif attr_type == "bool":
             conds = ["True", "False"]
 
@@ -516,7 +515,6 @@ class CodexKg:
                 )
                 attr_json["attr_concept"] = concept
 
-
                 attr_json["conds"] = cond_json
                 attr_json["attr_type"] = attr_type
                 attr_json["attribute"] = selected_attr
@@ -545,9 +543,9 @@ class CodexKg:
                     attr_list2 = list(attrs2.keys())
 
                     for selected_attr in attr_list2:
-                        attr_type = self.entity_map[selected_ent2]["cols"][selected_attr][
-                            "type"
-                        ]
+                        attr_type = self.entity_map[selected_ent2]["cols"][
+                            selected_attr
+                        ]["type"]
 
                         attr_string += " that have a " + selected_attr
 
@@ -579,7 +577,7 @@ class CodexKg:
 
         attr_posibilites = []
 
-        #attrs = list(self.entity_map[entity_name]["cols"].keys())
+        # attrs = list(self.entity_map[entity_name]["cols"].keys())
         # to do add rels
 
         attr_obj_list = self.codex_attr_setter(entity_name, is_ent, 1)
@@ -587,22 +585,20 @@ class CodexKg:
         # there are n attributes,
         concept_json["attrs"] = attr_obj_list
 
-
         concept_json["query_strings"] = []
-
 
         print(concept_json)
 
         for attr_obj in attr_obj_list:
 
-            concept_json["query_strings"].append(self.query_string_find_maker(entity_name, attr_obj))
+            concept_json["query_strings"].append(
+                self.query_string_find_maker(entity_name, attr_obj)
+            )
 
         # Start with all find queries
 
         print("####################")
         print(concept_json)
-
-
 
         query_list = concept_json["query_strings"]
         codex_query_list = []
@@ -615,9 +611,7 @@ class CodexKg:
         query_counter = 0
         for attr in concept_json["attrs"]:
 
-
             attribute = attr["attribute"]
-
 
             codex_query_lookup[attribute] = {}
 
@@ -635,7 +629,6 @@ class CodexKg:
                 attr_json["attr_string"] = attr["attr_string"]
                 attr_json["attr_concept"] = entity_name
 
-                
                 codex_query_lookup[attribute][cond["selected_cond"]] = attr_json
                 # codex_query_lookup[entity_name][attribute][cond["selected_cond"]] = attr_json
 
@@ -646,21 +639,14 @@ class CodexKg:
                 cond_counter += 1
                 codex_query_list.append(concept_json)
             query_counter += 1
-        
-
 
         pprint.pprint(codex_query_list)
 
         print("#########")
 
-
         pprint.pprint(codex_query_lookup)
 
-
-
-
         # save queries to redis...
-
 
         # get current key space
         curr_keyspace = json.loads(self.cache.get(self.rkey))
@@ -670,25 +656,15 @@ class CodexKg:
         for codex_query in codex_query_list:
             curr_keyspace["query_map"][codex_query["query_string"]] = codex_query
 
-        #hard code find?
+        # hard code find?
         curr_keyspace["lookup_map"]["Find"][entity_name] = codex_query_lookup
         # update redis
         self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
-
-
-        
-
-
-
-
-
-    def query_string_find_maker(self,concept: str, attr_obj: dict) -> str:
+    def query_string_find_maker(self, concept: str, attr_obj: dict) -> str:
 
         print("####################")
         print(attr_obj)
-
-        
 
         # attr_len = len(attr_obj_list)
         # attr_counter = 1
@@ -710,35 +686,25 @@ class CodexKg:
 
         return query_list
 
-
     def list_queries(self):
         codex_queries = list(self.query_map.keys())
         return codex_queries
 
-
-    def nl_query(self,queries):
+    def nl_query(self, queries):
 
         print("will do a nl query")
-        #print(self.query_map)
-
+        # print(self.query_map)
 
         codex_queries = list(self.query_map.keys())
 
-
-        #TODO make query if and
+        # TODO make query if and
         curr_query = queries[0]["query"]
-
 
         for codex_query in codex_queries:
 
-
-
-            sim_score = similar(codex_query,curr_query)
+            sim_score = similar(codex_query, curr_query)
 
             print(f"{codex_query}: {sim_score}")
-
-
-
 
             if curr_query.lower() in codex_query.lower():
                 print("boo ya")
@@ -747,8 +713,6 @@ class CodexKg:
                 print(query_obj)
                 query_obj["attrs"][0]["cond"]["cond_value"] = queries[0]["condition"]
 
-
-
                 query_list = [query_obj]
 
                 codex_obj = CodexQueryFind(concepts=query_list, query_string=curr_query)
@@ -756,10 +720,6 @@ class CodexKg:
                 answers = self.query(codex_obj)
 
                 print(answers)
-
-
-
-
 
     # TODO
     # streamlit example
