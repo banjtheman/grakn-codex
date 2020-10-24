@@ -43,7 +43,7 @@ class CodexQueryFind(CodexQuery):
         # condition_value: Any,
         query_string: str,
     ) -> None:
-        logging.info("Created codex query find")
+        # logging.info("Created codex query find")
 
         self.concepts = concepts
         self.query_string = query_string
@@ -70,7 +70,7 @@ class CodexQueryCompute(CodexQuery):
         self,
         queries: dict,
     ) -> None:
-        logging.info("Created codex query compute")
+        # logging.info("Created codex query compute")
 
         self.queries = queries
 
@@ -86,7 +86,7 @@ class CodexQueryCluster(CodexQuery):
         self,
         query: dict,
     ) -> None:
-        logging.info("Created codex query cluster")
+        # logging.info("Created codex query cluster")
 
         self.query = query
 
@@ -104,7 +104,7 @@ class CodexQueryRule(CodexQuery):
         rule_string: str,
         rule_string_ans: str,
     ) -> None:
-        logging.info("Created codex query rule")
+        # logging.info("Created codex query rule")
 
         self.rule = rule
         self.rule_string = rule_string

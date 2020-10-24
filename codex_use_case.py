@@ -63,7 +63,7 @@ def search_for_data(codexkg):
         concept_attrs=["name"],
         concept_conds=["equals"],
         concept_values=["Google"],
-        rel_action=["produces"],
+        rel_actions=["produces"],
         concept_rels=["Product"],
         concept_rel_attrs=["name"],
         concept_rel_conds=["equals"],
@@ -75,7 +75,7 @@ def search_for_data(codexkg):
         concept_attrs=["name"],
         concept_conds=["equals"],
         concept_values=["Google"],
-        rel_action=["produces"],
+        rel_actions=["produces"],
         concept_rels=["Product"],
         with_rel_attrs=["note"],
         with_rel_conds=["contains"],
@@ -87,14 +87,14 @@ def search_for_data(codexkg):
         concept_attrs=["name"],
         concept_conds=["equals"],
         concept_values=["Google"],
-        rel_action=["produces"],
-        concept_rels=["Product"],
-        concept_rel_attrs=["name"],
-        concept_rel_conds=["equals"],
-        concept_rel_values=["Pixel"],
-        with_rel_attrs=["note"],
-        with_rel_conds=["contains"],
-        with_rel_values=["bis"],
+        rel_actions=["produces", "aligns"],
+        concept_rels=["Product", "Company"],
+        concept_rel_attrs=[["name"]],
+        concept_rel_conds=[["equals"], ["equals"]],
+        concept_rel_values=[["Pixel"], ["Two Six"]],
+        with_rel_attrs=[["note"]],
+        with_rel_conds=[["contains"]],
+        with_rel_values=[["bis"]],
     )
 
     # codexkg.find(
@@ -117,12 +117,74 @@ def search_for_data(codexkg):
     # df[df.iloc["name"] == "Google"]
 
 
+def quick_search(codexkg):
+
+    #Find all companies
+    ans = codexkg.find("Company")
+
+
+    logging.info(ans)
+
+    # Find Company that has a name equal to google
+    ans = codexkg.find(
+        concept="Company",
+        concept_attrs=["name"],
+        concept_conds=["equals"],
+        concept_values=["Google"],
+    )
+
+    # logging.info(ans)
+
+
+    ans = codexkg.find(
+        concept="Company",
+        rel_actions=["producer"],
+        concept_rels=["Product"],
+        concept_rel_attrs=[["name", "product_type"]],
+        concept_rel_conds=[["equals", "equals"]],
+        concept_rel_values=[["Pixel", "phone"]],        
+    )
+
+    logging.info(ans)
+
+
+
+    # ans = codexkg.find(
+    #     concept="Company",
+    #     concept_attrs=["name", "budget"],
+    #     concept_conds=["equals", "greater than"],
+    #     concept_values=["Google", 100],
+    #     rel_actions=["producer"],
+    #     concept_rels=["Product"],
+    #     concept_rel_attrs=[["name", "product_type"]],
+    #     concept_rel_conds=[["equals", "equals"]],
+    #     concept_rel_values=[["Pixel", "phone"]],
+    #     with_rel_attrs=[["note"]],
+    #     with_rel_conds=[["contains"]],
+    #     with_rel_values=[["pixel"]],
+    # )
+
+    # logging.info(ans)
+
+    # ans = codexkg.find(
+    #     concept="Company",
+    #     concept_attrs=["name","budget"],
+    #     concept_conds=["equals","greater than"],
+    #     concept_values=["Google",100],
+    # )
+
+    # logging.info(ans)
+
+
 def main():
 
     logging.info("This will highlight how we can use codex to create knowledge graphs")
     codexkg = CodexKg()
 
     codexkg.create_db("tech_example")
+    # loading_data(codexkg)
+
+    quick_search(codexkg)
 
     # loading_data(codexkg)
     # gen_qs(codexkg)
@@ -173,12 +235,16 @@ def search_data(codexkg):
 def loading_data(codexkg):
 
     # load data from csv
-    tech_companies = pd.read_csv("sample_data/tech_companies.csv")
-    tech_products = pd.read_csv("sample_data/tech_products.csv")
+    # tech_companies = pd.read_csv("sample_data/tech_companies.csv")
+    # tech_products = pd.read_csv("sample_data/tech_products.csv")
 
     # create entites
-    codexkg.create_entity(tech_companies, "Company", "name")
-    codexkg.create_entity(tech_products, "Product", "name")
+    # codexkg.create_entity(tech_companies, "Company", "name")
+    # codexkg.create_entity(tech_products, "Product", "name")
+
+    # create rels
+    company_products = pd.read_csv("sample_data/tech_products_rel.csv")
+    codexkg.create_relationship(company_products, "Productize", "Product", "Company")
 
     # codexkg.delete_db("tech_example") # Delete keyspace
 

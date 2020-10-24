@@ -197,14 +197,14 @@ def cond_setter(
     # cond_string = ""
 
     if attr_type == "string":
-        conds = ["Equals", "Contains", "Congruent"]
+        conds = ["equals", "contains", "congruent"]
         selected_cond = st.selectbox(
             "Select Condition",
             conds,
             key=f"{concept}-{attr_name} {seed} {rule_num} cond checker",
         )
 
-        if selected_cond is not "Congruent":
+        if selected_cond is not "congruent":
             cond_value = st.text_input(
                 "Condition Value",
                 key=f"{concept}-{attr_name} {seed} {rule_num}  cond value",
@@ -221,7 +221,7 @@ def cond_setter(
         cond_string = " that " + selected_cond + " " + cond_value
 
     if attr_type == "long" or attr_type == "double":
-        conds = ["Equals", "Less Than", "Greater Than"]
+        conds = ["equals", "less Than", "greater Than"]
         selected_cond = st.selectbox(
             "Select Condition",
             conds,
@@ -234,7 +234,7 @@ def cond_setter(
         cond_string = f" that {selected_cond} {cond_value}"
 
     if attr_type == "bool":
-        conds = ["True", "False"]
+        conds = ["true", "false"]
         selected_cond = "Equals"
         cond_value = st.selectbox(
             "Select Condition",

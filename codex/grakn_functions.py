@@ -227,6 +227,9 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
     """
     query_check_type = attr["attr_type"]
 
+    # logging.info("here comes...")
+    # logging.info(attr)
+
     if not "selected_cond" in attr["cond"]:
         logging.info("empty cond check")
         return "", []
@@ -234,7 +237,7 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
     cond_value = attr["cond"]["cond_value"]
     curr_attr = attr["attribute"]
     attr_concept = attr["attr_concept"]
-    logging.info("loaded all")
+    # logging.info("loaded all")
 
     grakn_query = ""
 
@@ -251,11 +254,11 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
             # now need to check for each condtion
 
             # match $Company isa Company, has name "Two"
-            if cond_type == "Equals":
+            if cond_type == "equals":
                 grakn_query += ' "' + cond_value + '"'
 
             # match $Company isa Company, has name $name; { $name contains "Two";}; get; offset 0; limit 30;
-            if cond_type == "Contains":
+            if cond_type == "contains":
                 grakn_query += f" ${attr_concept}_{curr_attr}"
                 contain_string = (
                     f'{{ ${attr_concept}_{curr_attr} contains "{cond_value}";}}'
@@ -264,11 +267,11 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
 
         # if query_check_type == "double" or query_check_type == "long":
         else:
-            if cond_type == "Equals":
+            if cond_type == "equals":
                 grakn_query += f" {cond_value}"
-            if cond_type == "Greater Than":
+            if cond_type == "greater than":
                 grakn_query += f" > {cond_value}"
-            if cond_type == "Less Than":
+            if cond_type == "less than":
                 grakn_query += f" < {cond_value}"
     return grakn_query, contain_statements
 
@@ -549,20 +552,44 @@ def find_query(session, query_object: dict) -> dict:
         attr_counter = 1
         grakn_query += f"match ${concept['concept']} isa {concept['concept']}"
 
-        logging.info(grakn_query)
+        # logging.info(grakn_query)
 
         for attr in concept["attrs"]:
 
             if "rel_ent" in attr:
                 rel_query_string = f"; ${attr['rel_ent']} isa {attr['rel_ent']}"
 
-                # hmm only if attr_type is not null
-                if not attr["attr_type"] is None:
-                    rel_query_string += f", has {attr['attribute']}"
+                # add rel ent to concepts
+                if attr["rel_ent"] not in concepts:
+                    concepts.append(attr["rel_ent"])
 
-                grakn_query_cond, contains_array = find_cond_checker(attr)
-                rel_query_string += grakn_query_cond
-                contain_statements.extend(contains_array)
+                if attr["rel_name"] not in concepts:
+                    concepts.append(attr["rel_name"])
+
+                attr_loop_counter = 0
+                for attr_type in attr["attr_type"]:
+
+                    # hmm only if attr_type is not null
+                    if not attr_type is None:
+                        rel_query_string += (
+                            f", has {attr['attribute'][attr_loop_counter]}"
+                        )
+
+                    # make a new attr object
+
+                    attr_obj = {}
+
+                    # logging.info(attr["cond"])
+                    attr_obj["attr_type"] = attr_type
+                    attr_obj["cond"] = attr["cond"][attr_loop_counter]
+                    attr_obj["attribute"] = attr["attribute"][attr_loop_counter]
+                    attr_obj["attr_concept"] = attr["rel_ent"]
+                    grakn_query_cond, contains_array = find_cond_checker(attr_obj)
+
+                    rel_query_string += grakn_query_cond
+                    contain_statements.extend(contains_array)
+
+                    attr_loop_counter += 1
 
                 rel_query_string += (
                     ";(" + attr["rel_attr"] + ": $" + concept["concept"] + ", "
@@ -575,21 +602,29 @@ def find_query(session, query_object: dict) -> dict:
                     + attr["rel_name"]
                 )
 
-                # I would add the with_rel_conds here
+                # should be another loop?
                 if "rel_conds" in attr:
 
-                    logging.info("got here")
-                    logging.info(attr["rel_conds"])
+                    # logging.info("got here")
+                    # logging.info(attr["rel_conds"])
 
                     for rel_cond in attr["rel_conds"]:
 
                         rel_query_string += f", has {rel_cond['attribute']}"
+                        attr_obj["attr_type"] = rel_cond["attr_type"]
+                        attr_obj["cond"] = {}
+                        attr_obj["attribute"] = rel_cond["attribute"]
+                        attr_obj["attr_concept"] = rel_cond["concept"]
+                        attr_obj["cond"]["selected_cond"] = rel_cond["selected_cond"]
+                        attr_obj["cond"]["cond_value"] = rel_cond["cond_value"]
 
-                        grakn_query_cond, contains_array = find_cond_checker(rel_cond)
+                        concepts.append(f"{attr['rel_name']}_{rel_cond['attribute']}")
+
+                        grakn_query_cond, contains_array = find_cond_checker(attr_obj)
                         rel_query_string += grakn_query_cond
                         contain_statements.extend(contains_array)
 
-                    logging.info("passed here")
+                    # logging.info("passed here")
 
                 rel_statements.append(rel_query_string)
 
@@ -613,7 +648,7 @@ def find_query(session, query_object: dict) -> dict:
 
                 grakn_query += ";get;"
                 concept_queries.append(grakn_query)
-                logging.info(grakn_query)
+                # logging.info(grakn_query)
             else:
                 grakn_query += " "
 
@@ -622,6 +657,13 @@ def find_query(session, query_object: dict) -> dict:
     logging.info("Here is the graql")
     for query in concept_queries:
         logging.info(query)
+
+
+    #check for a do all query....
+    if len(concept_queries) == 0:
+        grakn_query = f"match ${concepts[0]} isa {concepts[0]}; get;"
+        concept_queries.append(grakn_query)
+
 
     answers = run_find_query(session, concept_queries, concepts)
     return answers
@@ -637,13 +679,13 @@ def get_ent_obj(concept: str) -> dict:
     Returns:
         ent_obj: the object for the entity
     """
-    logging.info("checking concept")
+    # logging.info("checking concept")
 
     ent_obj = {}
     attr_iterator = concept.attributes()
 
     for attr in attr_iterator:
-        logging.info(attr)
+        # logging.info(attr)
         ent_obj[attr.type().label()] = attr.value()
 
         # TODO any speical case for codex_details?
@@ -675,8 +717,8 @@ def centrallity_query(session, graql_query: str, concept: str):
 
             for rel in rel_iterator:
                 rel_label = rel.type().label()
-                logging.info("checking rel_label")
-                print(rel_label)
+                # logging.info("checking rel_label")
+                # print(rel_label)
 
                 # check if label is in ent_map
                 if rel_label in ent_map:
@@ -779,7 +821,7 @@ def run_cluster_query(session, graql_query: str, concepts: dict) -> dict:
                     connected_map[curr_measurement]["Ents"].append(ent_obj)
                     ent_map[concept]["data"][curr_measurement].append(ent_obj)
                 if node_type.is_relation_type():
-                    logging.info("AT a rel type")
+                    # logging.info("AT a rel type")
                     attr_iterator = node.attributes()
                     concept = node_type.label()
                     rel_obj = {}
@@ -992,48 +1034,61 @@ def run_find_query(session, queries: list, concepts: list) -> dict:
     Returns:
         ent_map: Answers to the queries by entity
     """
+    logging.info("Here are the concepts")
     ent_map = {}
+
+    for concept in concepts:
+        ent_map[concept] = []
+
     concept_counter = 0
     for query in queries:
-
-        curr_concept = concepts[concept_counter]
-
-        ent_map[curr_concept] = []
 
         with session.transaction().read() as read_transaction:
             answer_iterator = read_transaction.query(query)
             for answer in answer_iterator:
                 try:
-                    # logging.info(answer.map())
 
                     answer_concepts = list(answer.map().keys())
 
-                    # logging.info(answer_concepts)
-
+                    logging.info(answer_concepts)
                     for key in answer_concepts:
 
-                        if key == curr_concept:
+                        if key in concepts:
+                            logging.info("here is key")
+                            logging.info(key)
 
                             ent_obj = {}
-                            curr_ent = answer.map().get(curr_concept)
+                            curr_ent = answer.map().get(key)
                             # logging.info(curr_ent.id)
 
                             cur_val = read_transaction.get_concept(curr_ent.id)
                             # logging.info(cur_val)
 
                             attr_iterator = cur_val.attributes()
+                            # come back here
 
-                            for attr in attr_iterator:
-                                ent_obj[attr.type().label()] = attr.value()
+                            if cur_val.is_attribute():
+                                logging.info("Inside")
+                                ent_obj = {}
+                                node_val = cur_val.value()
+                                node_label = cur_val.type().label()
+                                ent_obj["key"] = node_label
+                                ent_obj["value"] = node_val
+                                logging.info(ent_obj)
 
-                            ent_map[curr_concept].append(ent_obj)
+                            else:
+
+                                for attr in attr_iterator:
+                                    ent_obj[attr.type().label()] = attr.value()
+
+                            ent_map[key].append(ent_obj)
 
                 except Exception as error:
                     logging.error(error)
 
         concept_counter += 1
 
-    logging.info(ent_map)
+    # logging.info(ent_map)
     return ent_map
 
 
@@ -1073,7 +1128,7 @@ def query_grakn(session, query_object) -> dict:
     Returns:
         answers_df_map: Answers to the queries by entity
     """
-    logging.info(f"{query_object}")
+    # logging.info(f"{query_object}")
     answers = {}
 
     if query_object.action == "Find":
@@ -1191,9 +1246,9 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict) -
     )
 
     row_attrs = list(rel_map["cols"].keys())
-    logging.info(row_attrs)
+    # logging.info(row_attrs)
     row_attrs.remove("codex_details")
-    logging.info(row_attrs)
+    # logging.info(row_attrs)
 
     attr_len = len(row_attrs)
     attr_counter = 1
@@ -1240,7 +1295,7 @@ def add_relationship_data(
     Returns:
         N/A
     """
-    logging.info("Starting add relationships")
+    # logging.info("Starting add relationships")
 
     # for each row in csv, add relationship
     df.apply(lambda row: commit_relationship(row, session, rel_name, rel_map), axis=1)
@@ -1304,7 +1359,7 @@ def create_entity_query(df: pd.DataFrame, entity_name: str, entity_key=None) -> 
         else:
             graql_insert_query += "has " + str(attr)
 
-        logging.info(graql_insert_query)
+        # logging.info(graql_insert_query)
 
         # check if last
         if attr_counter == attr_length:
@@ -1391,7 +1446,7 @@ def add_entities_into_grakn(
     Returns:
         N/A
     """
-    logging.info("adding entities")
+    # logging.info("adding entities")
     # for each row in csv, add an entity
     df.apply(lambda row: commit_entity(row, session, entity_name, entity_map), axis=1)
 
@@ -1428,7 +1483,7 @@ def load_entity_into_grakn(
     # make attrs
     for col in df.columns:
         with session.transaction().write() as transaction:
-            logging.info(col)
+            # logging.info(col)
             entity_map[col] = {}
             current_type = check_types(df, col)
             entity_map[col]["type"] = turn_value_type(current_type)
@@ -1439,7 +1494,7 @@ def load_entity_into_grakn(
     # make entity
     with session.transaction().write() as transaction:
         graql_insert_query = create_entity_query(df, entity_name, entity_key)
-        print("Executing Graql Query: " + graql_insert_query)
+        logging.info("Executing Graql Query: " + graql_insert_query)
         transaction.query(graql_insert_query)
         transaction.commit()
 
@@ -1474,7 +1529,7 @@ def load_relationship_into_grakn(
     # make attrs
     for col in cols:
         with session.transaction().write() as transaction:
-            logging.info(col)
+            # logging.info(col)
             entity_map[col] = {}
             current_type = check_types(df, col)
             entity_map[col]["type"] = turn_value_type(current_type)

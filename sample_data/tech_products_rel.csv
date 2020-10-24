@@ -1,8 +1,8 @@
-produced,producer
-iPhone,Apple
-Pixel,Google
-AWS,Amazon
-Azure,Microsoft
-Zune,Microsoft
-Microsoft Powerpoint,Microsoft
-Google Slides,Google
+produced,producer,note
+iPhone,Apple,"the 12th one"
+Pixel,Google,"pixel xl3"
+AWS,Amazon,"started the cloud"
+Azure,Microsoft,"to the cloud"
+Zune,Microsoft,"1 customer"
+Microsoft Powerpoint,Microsoft,"Lots of customers"
+Google Slides,Google,"wont be killed yet..."

@@ -16,11 +16,14 @@ from .grakn_functions import (
     add_relationship_data,
     # get_all_entities,
     query_grakn,
+    run_find_query,
     raw_query_read_grakn,
     raw_query_write_grakn,
 )
 
 from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute, CodexQueryRule
+
+from .codex_query_builder import find_action
 
 from difflib import SequenceMatcher
 
@@ -142,11 +145,11 @@ class CodexKg:
         # start session create new db
         try:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
-                logging.info(f"making key space...{db_name}")
+                # logging.info(f"making key space...{db_name}")
                 client.session(keyspace=str(db_name))
                 self.keyspace = db_name
 
-                logging.info("key space made")
+                # logging.info("key space made")
 
                 # check if keyspace exists in redis
                 key_prefix = "grakn_keyspace_"
@@ -163,6 +166,10 @@ class CodexKg:
                     self.rules_map = curr_keyspace["rules_map"]
                     self.query_map = {}
                     self.lookup_map = {}
+
+
+                    # logging.info(self.rkey)
+                    # logging.info(self.rel_map)
                     # self.query_map = curr_keyspace["query_map"]
                     # self.lookup_map = curr_keyspace["lookup_map"]
 
@@ -195,8 +202,9 @@ class CodexKg:
         Returns:
             status: 0 if pass, -1 if fail
         """
-        logging.info("Deleteing keyspace " + db_name)
         logging.info("Connecting to grakn at " + self.uri)
+        logging.info("Deleteing keyspace " + db_name)
+        
         # start session create new db
         try:
             with GraknClient(uri=self.uri) as client:
@@ -225,7 +233,7 @@ class CodexKg:
         Returns:
             status: 0 if pass, -1 if fail
         """
-        logging.info("Creating entity")
+        logging.info(f"Creating entity {entity_name}")
 
         try:
             # df = pd.read_csv(csv_path)
@@ -243,7 +251,7 @@ class CodexKg:
                     # create rels array here rels [  {plays: produces, in_rel: Productize. with_ent: Company}
                     self.entity_map[entity_name]["rels"] = {}
 
-                    logging.info(self.entity_map)
+                    # logging.info(self.entity_map)
                     add_entities_into_grakn(session, df, entity_name, self.entity_map)
 
                     # add to redis
@@ -273,7 +281,7 @@ class CodexKg:
         Returns:
             status: 0 if pass, -1 if fail
         """
-        logging.info("Creating relationship")
+        logging.info(f"Creating relationship {rel_name}")
         try:
             # df = pd.read_csv(csv_path)
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
@@ -325,7 +333,7 @@ class CodexKg:
                     self.entity_map[rel2]["rels"][rel_name]["plays"] = cols[1]
                     self.entity_map[rel2]["rels"][rel_name]["with_ent"] = rel1
 
-                    logging.info(self.rel_map)
+                    # logging.info(self.rel_map)
                     add_relationship_data(df, self.rel_map[rel_name], rel_name, session)
 
                     # get current key space
@@ -399,6 +407,76 @@ class CodexKg:
         except Exception as error:
             logging.error(error)
             return None
+
+    def find(
+        self,
+        concept: str,
+        concept_attrs: list = [],
+        concept_conds: list = [],
+        concept_values: list = [],
+        rel_actions: list = [],
+        concept_rels: list = [],
+        concept_rel_attrs: list = [],
+        concept_rel_conds: list = [],
+        concept_rel_values: list = [],
+        with_rel_attrs: list = [],
+        with_rel_conds: list = [],
+        with_rel_values: list = [],
+    ):
+        """
+        Purpose:
+            Find data in Knowledge Graph
+        Args:
+            concept: Concept to find
+            concept_attrs: Concept attributes
+            concept_conds: condition for attribute
+            concept_values: value for condition
+            rel_actions: Find releation attrubite
+            concept_rels= Relation to search for
+            concept_rel_attrs=attributes for relation attribute
+            concept_rel_conds=conditions for relation attribute
+            concept_rel_values=values for relation attribute,
+            with_rel_attrs=attributes of the relationship ,
+            with_rel_conds=conditions of the relationship ,
+            with_rel_values=values of the relationship ,
+        Returns:
+            answers: answers to the query
+        """
+
+
+        logging.info(f"Finding {concept} data")
+
+
+        #check null case
+
+        # if len(concept_attrs) == 0 and len(rel_actions) == 0:
+
+        #     #do a raw get all query
+        #     grakn_query = f"match $x isa {concept}; get;"
+
+        #     run_find_query
+        #     return self.raw_graql(grakn_query,"read") 
+
+
+
+        query_obj = find_action(
+            self,
+            concept,
+            concept_attrs,
+            concept_conds,
+            concept_values,
+            rel_actions,
+            concept_rels,
+            concept_rel_attrs,
+            concept_rel_conds,
+            concept_rel_values,
+            with_rel_attrs,
+            with_rel_conds,
+            with_rel_values,
+        )
+
+        # do query..
+        return self.query(query_obj)
 
     def get_rel_name_from_ents(self, rel1: str, rel2: str) -> str:
 
