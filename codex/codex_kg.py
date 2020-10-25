@@ -23,7 +23,7 @@ from .grakn_functions import (
 
 from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute, CodexQueryRule
 
-from .codex_query_builder import find_action
+from .codex_query_builder import find_action, compute_action
 
 from difflib import SequenceMatcher
 
@@ -167,7 +167,6 @@ class CodexKg:
                     self.query_map = {}
                     self.lookup_map = {}
 
-
                     # logging.info(self.rkey)
                     # logging.info(self.rel_map)
                     # self.query_map = curr_keyspace["query_map"]
@@ -204,7 +203,7 @@ class CodexKg:
         """
         logging.info("Connecting to grakn at " + self.uri)
         logging.info("Deleteing keyspace " + db_name)
-        
+
         # start session create new db
         try:
             with GraknClient(uri=self.uri) as client:
@@ -443,11 +442,9 @@ class CodexKg:
             answers: answers to the query
         """
 
-
         logging.info(f"Finding {concept} data")
 
-
-        #check null case
+        # check null case
 
         # if len(concept_attrs) == 0 and len(rel_actions) == 0:
 
@@ -455,9 +452,7 @@ class CodexKg:
         #     grakn_query = f"match $x isa {concept}; get;"
 
         #     run_find_query
-        #     return self.raw_graql(grakn_query,"read") 
-
-
+        #     return self.raw_graql(grakn_query,"read")
 
         query_obj = find_action(
             self,
@@ -476,6 +471,14 @@ class CodexKg:
         )
 
         # do query..
+        return self.query(query_obj)
+
+    def compute(self, actions: list, concepts: list, concept_attrs: list):
+        logging.info(f"Computing data")
+
+        query_obj = compute_action(self, actions, concepts, concept_attrs)
+
+        # do query.
         return self.query(query_obj)
 
     def get_rel_name_from_ents(self, rel1: str, rel2: str) -> str:

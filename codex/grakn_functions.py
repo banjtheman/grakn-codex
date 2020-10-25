@@ -658,12 +658,10 @@ def find_query(session, query_object: dict) -> dict:
     for query in concept_queries:
         logging.info(query)
 
-
-    #check for a do all query....
+    # check for a do all query....
     if len(concept_queries) == 0:
         grakn_query = f"match ${concepts[0]} isa {concepts[0]}; get;"
         concept_queries.append(grakn_query)
-
 
     answers = run_find_query(session, concept_queries, concepts)
     return answers

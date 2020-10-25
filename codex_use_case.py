@@ -119,35 +119,42 @@ def search_for_data(codexkg):
 
 def quick_search(codexkg):
 
-    #Find all companies
-    ans = codexkg.find("Company")
-
+    ans = codexkg.compute(
+        actions=["Sum", "Count"],
+        concepts=["Company", "Product"],
+        concept_attrs=["budget", ""],
+    )
 
     logging.info(ans)
 
-    # Find Company that has a name equal to google
-    ans = codexkg.find(
-        concept="Company",
-        concept_attrs=["name"],
-        concept_conds=["equals"],
-        concept_values=["Google"],
-    )
+    # # Find all companies
+    # ans = codexkg.find("Company")
 
     # logging.info(ans)
 
+    # # Find Company that has a name equal to google
+    # ans = codexkg.find(
+    #     concept="Company",
+    #     concept_attrs=["name"],
+    #     concept_conds=["equals"],
+    #     concept_values=["Google"],
+    # )
 
-    ans = codexkg.find(
-        concept="Company",
-        rel_actions=["producer"],
-        concept_rels=["Product"],
-        concept_rel_attrs=[["name", "product_type"]],
-        concept_rel_conds=[["equals", "equals"]],
-        concept_rel_values=[["Pixel", "phone"]],        
-    )
+    # # logging.info(ans)
 
-    logging.info(ans)
+    # ans = codexkg.find(
+    #     concept="Company",
+    #     rel_actions=["producer"],
+    #     concept_rels=["Product"],
+    #     concept_rel_attrs=[["name", "product_type"]],
+    #     concept_rel_conds=[["equals", "equals"]],
+    #     concept_rel_values=[["Pixel", "phone"]],
+    # )
 
+    # logging.info(ans)
 
+    # compute example
+    # {'Sum': [{'concept': 'Company', 'attr': 'budget', 'query_text': 'Compute Sum for budget in Company'}], 'Count': [{'concept': 'Company', 'query_text': 'Compute Count for Company'}]}
 
     # ans = codexkg.find(
     #     concept="Company",

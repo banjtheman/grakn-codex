@@ -126,7 +126,6 @@ def cond_setter(
     return cond_json
 
 
-
 def cond_array_maker(
     codexkg, concept, is_ent, rel_attrs, rel_conds, rel_values, attr_string
 ):
@@ -143,7 +142,6 @@ def cond_array_maker(
         concept_cond = rel_conds[rel_attr_counter]
         concept_value = rel_values[rel_attr_counter]
 
-
         # logging.info(concept)
         # logging.info(rel_attr)
 
@@ -157,25 +155,21 @@ def cond_array_maker(
         attr_string += f" that have a {rel_attr}"
 
         cond_json = cond_setter(
-                curr_type,
-                rel_attr,
-                concept,
-                concept_cond,
-                concept_value,
-            )
+            curr_type,
+            rel_attr,
+            concept,
+            concept_cond,
+            concept_value,
+        )
 
         cond_json["attr_string"] = attr_string
         cond_json["attr_type"] = curr_type
         cond_json["attribute"] = rel_attr
         cond_json["concept"] = concept
 
-        cond_array.append(
-            cond_json
-
-        )
+        cond_array.append(cond_json)
 
         rel_attr_counter += 1
-    
 
     # logging.info("Here is cond array")
     # logging.info(cond_array)
@@ -310,7 +304,7 @@ def attr_setter(
                 #     attr_string,
                 # )
 
-                #TODO why cant this be a function?
+                # TODO why cant this be a function?
 
                 for rel_attr in rel_attrs:
 
@@ -450,7 +444,6 @@ def find_action(
     ents = list(codexkg.entity_map.keys())
     # rels = list(codexkg.rel_map.keys())
 
-
     if concept in ents:
         is_ent = True
         concept_type = "Entity"
@@ -504,7 +497,6 @@ def find_action(
 
     return curr_query
 
-
     # st.write(codex_query_list)
 
     # st.header(query_text)
@@ -519,3 +511,105 @@ def find_action(
     #             st.error("No Matches for Query")
     #         else:
     #             st.write(answers[key])
+
+
+# {'Sum': [{'concept': 'Company', 'attr': 'profit', 'query_text': 'Compute Sum for profit in Company'}, {'concept': 'Product', 'attr': 'cost', 'query_text': 'Compute Sum for cost in Product'}], 'Count': [{'concept': 'Productize', 'query_text': 'Compute Count for Productize'}]}
+
+
+def compute_action(
+    codexkg,
+    actions: list,
+    concepts: list,
+    concept_attrs: list,
+):
+
+    compute_obj = {}
+
+    actions_list = [
+        "Count",
+        "Sum",
+        "Maximum",
+        "Minimum",
+        "Mean",
+        "Median",
+        "Standard Deviation",
+    ]
+
+    # check if valid actions..
+
+    for action in actions:
+        if action not in actions_list:
+            raise ValueError(
+                f"{action} is not a valid action. Choose from {action_list}"
+            )
+
+    query_text_list = []
+
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+
+    ents_rels = ents + rels
+
+    for counter, action in enumerate(actions):
+
+        if action not in compute_obj:
+            compute_obj[action] = []
+
+        concept = concepts[counter]
+        concept_attr = concept_attrs[counter]
+
+        if concept not in ents_rels:
+            raise (f"Invalid concept: {concept}, must be from {ents_rels}")
+
+        if action == "Count":
+            query_text = f"Compute {action} for {concept}"
+
+            query_text_list.append(query_text)
+            # st.header(query_text)
+
+            count_obj = {}
+            count_obj["concept"] = concept
+            count_obj["query_text"] = query_text
+
+            compute_obj[action].append(count_obj)
+
+        else:
+
+            if concept in ents:
+                attrs = codexkg.entity_map[concept]["cols"]
+                attr_list = list(codexkg.entity_map[concept]["cols"])
+            else:
+                attrs = codexkg.rel_map[concept]["cols"]
+                attr_list = list(codexkg.rel_map[concept]["cols"])
+
+            # check if attr is valid
+            if not concept_attr in attr_list:
+                raise ValueError(
+                    f"{concept_attr} is not a valid attrubite for {concept}, select from {attr_list}"
+                )
+
+            # check if attr type is valid
+            if not (
+                attrs[concept_attr]["type"] == "double"
+                or attrs[concept_attr]["type"] == "long"
+            ):
+                raise TypeError(
+                    f"{concept_attr} is not a double or a long, can not compute..."
+                )
+
+            query_text = f"Compute {action} for {concept_attr} in {concept}"
+
+            action_obj = {}
+            action_obj["concept"] = concept
+            action_obj["attr"] = concept_attr
+            action_obj["query_text"] = query_text
+
+            compute_obj[action].append(action_obj)
+            # st.header(query_text)
+            query_text_list.append(query_text)
+
+    curr_query = CodexQueryCompute(queries=compute_obj)
+
+    logging.info(curr_query)
+
+    return curr_query
