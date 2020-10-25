@@ -119,13 +119,68 @@ def search_for_data(codexkg):
 
 def quick_search(codexkg):
 
-    ans = codexkg.compute(
-        actions=["Sum", "Count"],
-        concepts=["Company", "Product"],
-        concept_attrs=["budget", ""],
+
+
+    ans = codexkg.cluster(
+        cluster_action = "centerality",
+        action = "degree",
+        cluster_type = "All"
     )
 
-    logging.info(ans)
+    # logging.info(ans)
+
+    # ans = codexkg.cluster(
+    #     cluster_action="centerality",
+    #     action = "degree"
+    #     cluster_type= "Subgraph"
+    #     cluster_concepts=["Product","Company"]
+    # )
+
+    # logging.info(ans)
+
+    # ans = codexkg.cluster(
+    #     cluster_action="centerality",
+    #     action = "degree"
+    #     cluster_type= "Subgraph"
+    #     cluster_concepts=["Product","Company"]
+    #     given_type = "Company"
+    # )
+
+    # logging.info(ans)
+
+
+    # ans = codexkg.cluster(
+    #     cluster_action="centerality",
+    #     action = "k-core"
+    #     k_min = 2
+    # )
+
+    # logging.info(ans)
+
+
+    # ans = codexkg.cluster(
+    #     cluster_action="cluster",
+    #     action = "k-core"
+    #     cluster_concepts=["Product","Company"]
+    #     k_min = 2
+    # )
+
+    # ans = codexkg.cluster(
+    #     cluster_action="cluster",
+    #     action = "connected"
+    #     cluster_concepts=["Product","Company"]
+    # )
+
+
+
+
+    # ans = codexkg.compute(
+    #     actions=["Sum", "Count"],
+    #     concepts=["Company", "Product"],
+    #     concept_attrs=["budget", ""],
+    # )
+
+    # logging.info(ans)
 
     # # Find all companies
     # ans = codexkg.find("Company")

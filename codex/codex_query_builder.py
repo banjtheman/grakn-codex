@@ -14,10 +14,6 @@ from .codex_query import (
     CodexQueryRule,
 )
 
-
-# from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute, CodexQueryRule
-
-
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
 )
@@ -280,8 +276,6 @@ def attr_setter(
 
                 attr_json["attr_concept"] = selected_ent2
                 attr_string += " " + selected_ent2
-                attrs2 = codexkg.entity_map[selected_ent2]["cols"]
-                # attr_list2 = list(attrs2.keys())
 
                 # basicaly do a loop for all rel_conds and rel_values
 
@@ -293,16 +287,6 @@ def attr_setter(
 
                 selected_attr = []
                 attr_type = []
-
-                # cond_json_new = cond_array_maker(
-                #     codexkg,
-                #     selected_ent2,
-                #     True,
-                #     rel_attrs,
-                #     rel_conds,
-                #     rel_values,
-                #     attr_string,
-                # )
 
                 # TODO why cant this be a function?
 
@@ -345,23 +329,13 @@ def attr_setter(
                 attr_json["attr_concept"] = selected_ent2
                 attr_string += " " + selected_ent2
                 attrs2 = codexkg.entity_map[selected_ent2]["cols"]
-                # attr_list2 = list(attrs2.keys())
-                # selected_attr = st.selectbox(f"Select Attribute {rule_num}", attr_list2)
-                # attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr]["type"]
                 attr_string + " that have a " + selected_ent2 + " relationship that "
-
                 cond_json = {}
 
                 attr_type = None
 
-            # with_rel_cond = st.checkbox(
-            #     "Relationship condition?", key=f"rel cond {rule_num}"
-            # )
-
             if len(with_rel_attrs) > 0:
-                # rel_cond_list = attr_setter(codexkg, rel_name, False, rule_num + 1)
-                # logging.info("Check rel values")
-                # logging.info(with_rel_attrs)
+
                 attr_json["rel_conds"] = cond_array_maker(
                     codexkg,
                     rel_name,
@@ -372,10 +346,6 @@ def attr_setter(
                     attr_string,
                 )
 
-                # logging.info("Here is the rel con json")
-
-                # logging.info(attr_json["rel_conds"])
-                # st.write(rel_cond_list)
             rel_action_counter += 1
 
         attr_json["cond"] = cond_json
@@ -402,10 +372,7 @@ def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
 
         try:
 
-            # logging.info("here comes")
-            # logging.info(attr)
             query_string += f"{attr['attr_string']}{attr['cond']['cond_string']}"
-
             # logging.info(query_string)
         except:
             query_string += f"{attr['attr_string']}"
@@ -513,9 +480,6 @@ def find_action(
     #             st.write(answers[key])
 
 
-# {'Sum': [{'concept': 'Company', 'attr': 'profit', 'query_text': 'Compute Sum for profit in Company'}, {'concept': 'Product', 'attr': 'cost', 'query_text': 'Compute Sum for cost in Product'}], 'Count': [{'concept': 'Productize', 'query_text': 'Compute Count for Productize'}]}
-
-
 def compute_action(
     codexkg,
     actions: list,
@@ -540,7 +504,7 @@ def compute_action(
     for action in actions:
         if action not in actions_list:
             raise ValueError(
-                f"{action} is not a valid action. Choose from {action_list}"
+                f"{action} is not a valid action. Choose from {actions_list}"
             )
 
     query_text_list = []
@@ -559,13 +523,11 @@ def compute_action(
         concept_attr = concept_attrs[counter]
 
         if concept not in ents_rels:
-            raise (f"Invalid concept: {concept}, must be from {ents_rels}")
+            raise ValueError(f"Invalid concept: {concept}, must be from {ents_rels}")
 
         if action == "Count":
             query_text = f"Compute {action} for {concept}"
-
             query_text_list.append(query_text)
-            # st.header(query_text)
 
             count_obj = {}
             count_obj["concept"] = concept
@@ -605,11 +567,21 @@ def compute_action(
             action_obj["query_text"] = query_text
 
             compute_obj[action].append(action_obj)
-            # st.header(query_text)
             query_text_list.append(query_text)
 
     curr_query = CodexQueryCompute(queries=compute_obj)
-
     logging.info(curr_query)
 
     return curr_query
+
+
+def codex_cluster_action(
+    codexkg,
+    cluster_action,
+    action: str,
+    cluster_type: str,
+    cluster_concepts: list,
+    given_type: str,
+    k_min: int,
+):
+    logging.info("hello")

@@ -8,7 +8,6 @@ import pandas as pd
 from grakn.client import GraknClient
 import redis
 
-
 from .grakn_functions import load_entity_into_grakn
 from .grakn_functions import add_entities_into_grakn
 from .grakn_functions import (
@@ -22,39 +21,7 @@ from .grakn_functions import (
 )
 
 from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute, CodexQueryRule
-
-from .codex_query_builder import find_action, compute_action
-
-from difflib import SequenceMatcher
-
-
-def similar(a, b):
-    return SequenceMatcher(None, a, b).ratio()
-
-
-logging.basicConfig(
-    format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
-)
-
-
-rules = (
-    (lambda word: re.search("[sxz]$", word), lambda word: re.sub("$", "es", word)),
-    (
-        lambda word: re.search("[^aeioudgkprt]h$", word),
-        lambda word: re.sub("$", "es", word),
-    ),
-    (
-        lambda word: re.search("[^aeiou]y$", word),
-        lambda word: re.sub("y$", "ies", word),
-    ),
-    (lambda word: re.search("$", word), lambda word: re.sub("$", "s", word)),
-)
-
-
-def plural(noun):
-    for findpattern, rule in rules:
-        if findpattern(noun):
-            return rule(noun)
+from .codex_query_builder import find_action, compute_action, codex_cluster_action
 
 
 class CodexKg:
@@ -481,326 +448,30 @@ class CodexKg:
         # do query.
         return self.query(query_obj)
 
-    def get_rel_name_from_ents(self, rel1: str, rel2: str) -> str:
-
-        rels = list(self.rel_map.keys())
-        rel_name = ""
-
-        for rel in rels:
-
-            check1 = self.rel_map[rel]["rel1"]["entity"]
-            check2 = self.rel_map[rel]["rel2"]["entity"]
-
-            if rel1 == check1 or rel1 == check2:
-                if rel2 == check1 or rel2 == check2:
-                    rel_name = rel
-
-        return rel_name
-
-    def cond_json_maker(self, cond: str, concept: str, attr_name: str) -> dict:
-
-        cond_json = {}
-
-        # cond_value = f"REPLACE_{concept}_{attr_name}"
-        cond_value = f"CODEX_REPLACE"
-        cond_string = " that " + cond + " " + cond_value
-
-        cond_json["selected_cond"] = cond
-        cond_json["cond_value"] = cond_value
-        cond_json["cond_string"] = cond_string
-
-        return cond_json
-
-    def cond_setter(
-        self, attr_type: str, attr_name: str, concept: str, rule_num: int
-    ) -> str:
-
-        cond_list = []
-
-        if attr_type == "string":
-            conds = ["Equals", "Contains"]
-
-            for cond in conds:
-                cond_json = self.cond_json_maker(cond, concept, attr_name)
-                cond_list.append(cond_json)
-
-        elif attr_type == "long" or attr_type == "double":
-            conds = ["Equals", "Less Than", "Greater Than"]
-
-            for cond in conds:
-                cond_json = self.cond_json_maker(cond, concept, attr_name)
-                cond_list.append(cond_json)
-
-        elif attr_type == "bool":
-            conds = ["True", "False"]
-
-            for cond in conds:
-                cond_json = self.cond_json_maker(cond, concept, attr_name)
-                cond_list.append(cond_json)
-
-        else:
-            logging.info("error?")
-
-        return cond_list
-
-    def codex_attr_setter(self, concept: str, is_ent: bool, rule_num):
-
-        # Get Values from entites
-        plays_map = {}
-        if is_ent:
-            attrs = self.entity_map[concept]["cols"]
-            attr_list = list(attrs.keys())
-
-            rel_names = self.entity_map[concept]["rels"].keys()
-
-            rel_attrs = []
-            for rel in rel_names:
-                plays = self.entity_map[concept]["rels"][rel]["plays"]
-                with_ent = self.entity_map[concept]["rels"][rel]["with_ent"]
-                rel_attrs.append(plays)
-
-                if plays in plays_map:
-                    plays_map[plays].append(with_ent)
-                else:
-                    plays_map[plays] = [with_ent]
-
-            attr_list_comp = attr_list + rel_attrs
-
-        # Get values for relationships
-        else:
-            attrs = self.rel_map[concept]["cols"]
-            attr_list = list(attrs.keys())
-            attr_list.remove("codex_details")
-            attr_list_comp = attr_list
-
-        # this is the attribute for the entity i.e name
-
-        attr_obj_list = []
-
-        for selected_attr in attr_list_comp:
-
-            attr_json = {}
-
-            if selected_attr in attr_list:
-                attr_string = " that have a " + selected_attr
-
-                if is_ent:
-                    attr_type = self.entity_map[concept]["cols"][selected_attr]["type"]
-                else:
-                    attr_type = self.rel_map[concept]["cols"][selected_attr]["type"]
-
-                # TODO can we make this a function
-                # check condtion type
-                cond_json = self.cond_setter(
-                    attr_type, selected_attr, concept, rule_num
-                )
-                attr_json["attr_concept"] = concept
-
-                attr_json["conds"] = cond_json
-                attr_json["attr_type"] = attr_type
-                attr_json["attribute"] = selected_attr
-                attr_json["attr_string"] = attr_string
-
-                attr_obj_list.append(attr_json)
-
-            else:
-                attr_string = " that " + selected_attr
-
-                other_ents = plays_map[selected_attr]
-
-                for selected_ent2 in other_ents:
-
-                    attr_json["rel_ent"] = selected_ent2
-                    attr_json["rel_attr"] = selected_attr
-                    rel_name = self.get_rel_name_from_ents(concept, selected_ent2)
-                    attr_json["rel_name"] = rel_name
-                    attr_json["rel_other"] = self.entity_map[selected_ent2]["rels"][
-                        rel_name
-                    ]["plays"]
-
-                    attr_json["attr_concept"] = selected_ent2
-                    attr_string += " " + selected_ent2
-                    attrs2 = self.entity_map[selected_ent2]["cols"]
-                    attr_list2 = list(attrs2.keys())
-
-                    for selected_attr in attr_list2:
-                        attr_type = self.entity_map[selected_ent2]["cols"][
-                            selected_attr
-                        ]["type"]
-
-                        attr_string += " that have a " + selected_attr
-
-                        cond_json = self.cond_setter(
-                            attr_type, selected_attr, selected_ent2, rule_num
-                        )
-
-                        attr_json["conds"] = cond_json
-                        attr_json["attr_type"] = attr_type
-                        attr_json["attribute"] = selected_attr
-                        attr_json["attr_string"] = attr_string
-
-                        attr_obj_list.append(attr_json)
-
-        return attr_obj_list
-
-    # call this when entity created
-    # users shouldnt have to call this.
-    def generate_queries(self, entity_name, entity_type, is_ent):
-
-        query_list = []
-
-        # make all possible concept jsons
-
-        concept_json = {}
-        # lock never changes
-        concept_json["concept"] = entity_name
-        concept_json["concept_type"] = entity_type
-
-        attr_posibilites = []
-
-        # attrs = list(self.entity_map[entity_name]["cols"].keys())
-        # to do add rels
-
-        attr_obj_list = self.codex_attr_setter(entity_name, is_ent, 1)
-
-        # there are n attributes,
-        concept_json["attrs"] = attr_obj_list
-
-        concept_json["query_strings"] = []
-
-        print(concept_json)
-
-        for attr_obj in attr_obj_list:
-
-            concept_json["query_strings"].append(
-                self.query_string_find_maker(entity_name, attr_obj)
-            )
-
-        # Start with all find queries
-
-        print("####################")
-        print(concept_json)
-
-        query_list = concept_json["query_strings"]
-        codex_query_list = []
-
-        codex_query_lookup = {}
-
-        codex_query_lookup = {}
-        # codex_query_lookup[entity_name]["concept_type"] = entity_type
-
-        query_counter = 0
-        for attr in concept_json["attrs"]:
-
-            attribute = attr["attribute"]
-
-            codex_query_lookup[attribute] = {}
-
-            cond_counter = 0
-            for cond in attr["conds"]:
-
-                concept_json = {}
-                concept_json["concept"] = entity_name
-                concept_json["concept_type"] = entity_type
-
-                attr_json = {}
-                attr_json["cond"] = cond
-                attr_json["attr_type"] = attr["attr_type"]
-                attr_json["attribute"] = attr["attribute"]
-                attr_json["attr_string"] = attr["attr_string"]
-                attr_json["attr_concept"] = entity_name
-
-                codex_query_lookup[attribute][cond["selected_cond"]] = attr_json
-                # codex_query_lookup[entity_name][attribute][cond["selected_cond"]] = attr_json
-
-                concept_json["attrs"] = []
-                concept_json["attrs"].append(attr_json)
-                concept_json["query_string"] = query_list[query_counter][cond_counter]
-
-                cond_counter += 1
-                codex_query_list.append(concept_json)
-            query_counter += 1
-
-        pprint.pprint(codex_query_list)
-
-        print("#########")
-
-        pprint.pprint(codex_query_lookup)
-
-        # save queries to redis...
-
-        # get current key space
-        curr_keyspace = json.loads(self.cache.get(self.rkey))
-        # update entity map
-        curr_keyspace["query_map"]
-
-        for codex_query in codex_query_list:
-            curr_keyspace["query_map"][codex_query["query_string"]] = codex_query
-
-        # hard code find?
-        curr_keyspace["lookup_map"]["Find"][entity_name] = codex_query_lookup
-        # update redis
-        self.cache.set(self.rkey, json.dumps(curr_keyspace))
-
-    def query_string_find_maker(self, concept: str, attr_obj: dict) -> str:
-
-        print("####################")
-        print(attr_obj)
-
-        # attr_len = len(attr_obj_list)
-        # attr_counter = 1
-
-        query_list = []
-
-        for cond in attr_obj["conds"]:
-
-            query_string = f"Find {plural(concept)}"
-            query_string += f"{attr_obj['attr_string']}{cond['cond_string']}"
-
-            # if not attr_counter == attr_len:
-            #     query_string += " and "
-
-            # attr_counter += 1
-
-            query_string += "."
-            query_list.append(query_string)
-
-        return query_list
-
-    def list_queries(self):
-        codex_queries = list(self.query_map.keys())
-        return codex_queries
-
-    def nl_query(self, queries):
-
-        print("will do a nl query")
-        # print(self.query_map)
-
-        codex_queries = list(self.query_map.keys())
-
-        # TODO make query if and
-        curr_query = queries[0]["query"]
-
-        for codex_query in codex_queries:
-
-            sim_score = similar(codex_query, curr_query)
-
-            print(f"{codex_query}: {sim_score}")
-
-            if curr_query.lower() in codex_query.lower():
-                print("boo ya")
-                print(codex_query)
-                query_obj = self.query_map[codex_query]
-                print(query_obj)
-                query_obj["attrs"][0]["cond"]["cond_value"] = queries[0]["condition"]
-
-                query_list = [query_obj]
-
-                codex_obj = CodexQueryFind(concepts=query_list, query_string=curr_query)
-
-                answers = self.query(codex_obj)
-
-                print(answers)
+    def cluster(
+        self,
+        cluster_action,
+        action: str,
+        cluster_type: str = None,
+        cluster_concepts: list = None,
+        given_type: str = None,
+        k_min: int = None,
+    ):
+
+        logging.info("Clustering data")
+
+        query_obj = codex_cluster_action(
+            self,
+            cluster_action,
+            action,
+            cluster_type,
+            cluster_concepts,
+            given_type,
+            k_min,
+        )
+
+        # do query.
+        # return self.query(query_obj)
 
     # TODO
     # streamlit example
@@ -819,12 +490,13 @@ class CodexKg:
     #  tweets - text, char length, has_link, is_retweet,
     #  user - name, num_followers, following, verified
 
+    # api? - This is the api, almost there...
+
     # date quieres - check if string matches date format, if not then its a string
     # not quieres?
-    # api? - This is the api
 
     # biz case - shower
 
-    # generate all quries, use natrual language to make requests
+    # generate all quries, use natrual language to make requests - on pause too complicated..
 
     # import from grakn
