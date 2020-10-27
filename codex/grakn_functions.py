@@ -164,18 +164,18 @@ def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
             # now need to check for each condtion
 
             # match $Company isa Company, has name "Two"
-            if cond_type == "Equals":
+            if cond_type == "equals":
                 grakn_query += ' "' + cond_value + '"'
 
             # match $Company isa Company, has name $name; { $name contains "Two";}; get; offset 0; limit 30;
-            if cond_type == "Contains":
+            if cond_type == "contains":
                 grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
                 contain_string = (
                     f'{{ ${attr_concept}_{curr_attr}{dif_1} contains "{cond_value}";}}'
                 )
                 contain_statements.append(contain_string)
 
-            if cond_type == "Congruent":
+            if cond_type == "congruent":
                 # {Company_name_X == Company_name_Y};
                 grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
                 if dif_1 == "_B":
@@ -206,11 +206,11 @@ def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
 
         # if query_check_type == "double" or query_check_type == "long":
         else:
-            if cond_type == "Equals":
+            if cond_type == "equals":
                 grakn_query += f" {cond_value}"
-            if cond_type == "Greater Than":
+            if cond_type == "greater than":
                 grakn_query += f" > {cond_value}"
-            if cond_type == "Less Than":
+            if cond_type == "less than":
                 grakn_query += f" < {cond_value}"
     return grakn_query, contain_statements
 
@@ -413,11 +413,36 @@ def attr_make_rule_query(concept: str, dif_1: str, dif_2: str) -> str:
 
         if "rel_ent" in attr:
             rel_query_string = f"; ${attr['rel_ent']}{dif_2} isa {attr['rel_ent']}"
-            rel_query_string += f", has {attr['attribute']}"
+            # rel_query_string += f", has {attr['attribute']}"
 
-            grakn_query_cond, contains_array = find_cond_checker_rule(attr, dif_2)
-            rel_query_string += grakn_query_cond
-            contain_statements.extend(contains_array)
+            # grakn_query_cond, contains_array = find_cond_checker_rule(attr, dif_2)
+            # rel_query_string += grakn_query_cond
+            # contain_statements.extend(contains_array)
+
+            attr_loop_counter = 0
+            for attr_type in attr["attr_type"]:
+
+                # hmm only if attr_type is not null
+                if not attr_type is None:
+                    rel_query_string += f", has {attr['attribute'][attr_loop_counter]}"
+
+                # make a new attr object
+
+                attr_obj = {}
+
+                # logging.info(attr["cond"])
+                attr_obj["attr_type"] = attr_type
+                attr_obj["cond"] = attr["cond"][attr_loop_counter]
+                attr_obj["attribute"] = attr["attribute"][attr_loop_counter]
+                attr_obj["attr_concept"] = attr["rel_ent"]
+                grakn_query_cond, contains_array = find_cond_checker_rule(
+                    attr_obj, dif_2
+                )
+
+                rel_query_string += grakn_query_cond
+                contain_statements.extend(contains_array)
+
+                attr_loop_counter += 1
 
             rel_query_string += (
                 ";(" + attr["rel_attr"] + ": $" + concept["concept"] + f"{dif_1}, "
@@ -429,6 +454,27 @@ def attr_make_rule_query(concept: str, dif_1: str, dif_2: str) -> str:
                 + f"{dif_2}) isa "
                 + attr["rel_name"]
             )
+
+            # should be another loop?
+            if "rel_conds" in attr:
+
+                # logging.info("got here")
+                # logging.info(attr["rel_conds"])
+
+                for rel_cond in attr["rel_conds"]:
+
+                    rel_query_string += f", has {rel_cond['attribute']}"
+                    attr_obj["attr_type"] = rel_cond["attr_type"]
+                    attr_obj["cond"] = {}
+                    attr_obj["attribute"] = rel_cond["attribute"]
+                    attr_obj["attr_concept"] = rel_cond["concept"]
+                    attr_obj["cond"]["selected_cond"] = rel_cond["selected_cond"]
+                    attr_obj["cond"]["cond_value"] = rel_cond["cond_value"]
+
+                    grakn_query_cond, contains_array = find_cond_checker(attr_obj)
+                    rel_query_string += grakn_query_cond
+                    contain_statements.extend(contains_array)
+
             rel_statements.append(rel_query_string)
 
         else:
@@ -497,7 +543,7 @@ def rule_query(session, query_object: dict) -> dict:
     # cond2
     graql_string += f"${cond2['concept']}_B isa {cond2['concept']}"
 
-    graql_string += attr_make_rule_query(cond1, "_B", "_Y")
+    graql_string += attr_make_rule_query(cond2, "_B", "_Y")
 
     logging.info("query after cond2")
     logging.info(graql_string)

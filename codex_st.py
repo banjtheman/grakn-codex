@@ -435,9 +435,11 @@ def handle_rule_query(codexkg):
 
     rules_string = codexkg.rules_map[concept]["rule_string"]
     st.subheader(rules_string)
+
     query = f"match $x isa {concept}; get;"
 
     rule_ans = codexkg.rules_map[concept]["rule_string_ans"]
+    # st.subheader(rule_ans)
 
     # try:
     #     rule_ans = codexkg.rules_map[concept]["rule_string_ans"]

@@ -392,6 +392,127 @@ def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
     return query_string
 
 
+def make_rule_string(rule_obj):
+
+    rule_string = ""
+    rule_string_ans = ""
+
+    # check cond1
+    rule_name = rule_obj["name"]
+
+    cond1 = rule_obj["cond1"]
+    cond2 = rule_obj["cond2"]
+
+    rule_string += f"If {cond1['concept']} A "
+    rule_string_ans += f"{cond1['concept']}_A "
+
+    attr_len = len(cond1["attrs"])
+    attr_counter = 1
+    for attr in cond1["attrs"]:
+
+        if "rel_attr" in attr:
+            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} X that has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_X that has a {attr['attribute']} {attr['cond']['cond_string']}"
+        else:
+            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += (
+                f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            )
+
+        if attr_counter == attr_len:
+            rule_string += ". "
+            rule_string_ans += ". "
+
+        else:
+            rule_string += " and "
+            rule_string_ans += " and "
+
+        attr_counter += 1
+
+    # check cond2
+    attr_len = len(cond2["attrs"])
+    attr_counter = 1
+    rule_string += f"If {cond2['concept']} B "
+    rule_string_ans += f"{cond2['concept']}_B "
+    for attr in cond2["attrs"]:
+
+        if "rel_attr" in attr:
+            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
+        else:
+            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            rule_string_ans += (
+                f" has a {attr['attribute']} {attr['cond']['cond_string']}"
+            )
+
+        if attr_counter == attr_len:
+            rule_string += ". "
+            rule_string_ans += ". "
+        else:
+            rule_string += " and "
+            rule_string_ans += " and "
+
+        attr_counter += 1
+
+    rule_string += (
+        f"Then  {cond1['concept']} A and {cond2['concept']} B are {rule_name}"
+    )
+
+    return rule_string, rule_string_ans
+
+
+# TODO make this stand alone?
+def make_rule_cond(
+    codexkg,
+    concept: str,
+    concept_attrs,
+    concept_conds,
+    concept_values,
+    rel_actions,
+    concept_rels,
+    concept_rel_attrs,
+    concept_rel_conds,
+    concept_rel_values,
+    with_rel_attrs,
+    with_rel_conds,
+    with_rel_values,
+):
+    ents = list(codexkg.entity_map.keys())
+
+    if concept in ents:
+        is_ent = True
+        concept_type = "Entity"
+    else:
+        is_ent = False
+        concept_type = "Relationship"
+
+    attr_obj_list = attr_setter(
+        codexkg,
+        concept,
+        is_ent,
+        1,
+        concept_attrs,
+        concept_conds,
+        concept_values,
+        rel_actions,
+        concept_rels,
+        concept_rel_attrs,
+        concept_rel_conds,
+        concept_rel_values,
+        with_rel_attrs,
+        with_rel_conds,
+        with_rel_values,
+    )
+
+    concept_json = {}
+    concept_json["concept"] = concept
+    concept_json["concept_type"] = concept_type
+    concept_json["attrs"] = attr_obj_list
+    concept_json["query_string"] = query_string_find_maker(concept, attr_obj_list)
+
+    return concept_json
+
+
 def find_action(
     codexkg,
     concept: str,
@@ -575,6 +696,190 @@ def compute_action(
     return curr_query
 
 
+def concept_string(concepts: list) -> str:
+    """
+    Purpose:
+        make grakn query string
+    Args:
+        concepts: concepts for the graql string
+    Returns:
+        concept_string - graql string
+    """
+    concept_string = "["
+    concept_len = len(concepts)
+    concept_counter = 1
+    for concept in concepts:
+
+        if concept_counter == concept_len:
+            concept_string += concept + "]"
+        else:
+            concept_string += concept + ", "
+        concept_counter += 1
+
+    return concept_string
+
+
+def compute_centrality(
+    codexkg,
+    action: str,
+    choice: str,
+    cluster_concepts: list,
+    given_type: str,
+    k_min: int,
+):
+    """
+    Purpose:
+        computer centrality in grakn
+    Args:
+        codexkg: codex kg
+        action: str: cluster specific action
+        cluster_type: type of cluster,
+        cluster_concepts: list of concepts,
+        given_type: concept to hone in on,
+        k_min: how many k groups,
+    Returns:
+        codex_query - Cluster object
+    """
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+    ents_rels = ents + rels
+
+    cluster_obj = {}
+
+    if action == "degree":
+
+        if choice == "All":
+            query_string = "compute centrality using degree;"
+
+            cluster_obj["query_string"] = query_string
+            cluster_obj["query_type"] = "centrality"
+            cluster_obj["choice"] = "All Concepts"
+            cluster_obj["concepts"] = ents_rels
+
+        elif choice == "Subgraph":
+
+            cluster_obj["query_type"] = "centrality"
+            cluster_obj["choice"] = "subgraph"
+            cluster_obj["concepts"] = cluster_concepts
+
+            query_string = f"compute centrality in {concept_string(cluster_concepts)}, using degree;"
+
+            cluster_obj["query_string"] = query_string
+
+        elif choice == "Given type":
+
+            cluster_obj["query_type"] = "centrality"
+            cluster_obj["choice"] = "subgraph"
+            cluster_obj["concepts"] = cluster_concepts
+            cluster_obj["given_type"] = given_type
+
+            query_string = f"compute centrality of {given_type}, in {concept_string(cluster_concepts)}, using degree;"
+            cluster_obj["query_string"] = query_string
+        else:
+            raise TypeError(
+                f"Unknown choice{choice} must be All,Subgraph, or Given type"
+            )
+
+    if action == "k-core":
+        # concepts = st.multiselect("Select Concepts", ents_rels,key=f"{action} concept select")
+
+        cluster_obj["query_type"] = "centrality"
+        cluster_obj["choice"] = "k-core"
+        cluster_obj["concepts"] = ents_rels
+        query_string = f"compute centrality using k-core;"
+        cluster_concepts = ents_rels
+
+        if k_min is not None:
+
+            if k_min < 2:
+                raise ValueError(f"k_min: {k_min} is less than 2")
+
+            query_string = f"compute centrality using k-core, where min-k={k_min};"
+
+        cluster_obj["query_string"] = query_string
+
+    # st.write(cluster_obj)
+    curr_query = CodexQueryCluster(query=cluster_obj)
+
+    return curr_query
+
+    # if st.button("Query"):
+    #     # st.success("Doing query")
+    #     with st.spinner("Doing query..."):
+    #         answers = codexkg.query(curr_query)
+    #     # st.write(answers)
+
+    #     viz.cluster_graph(answers, ents, rels, codexkg)
+
+
+def compute_cluster(
+    codexkg,
+    action: str,
+    choice: str,
+    cluster_concepts: list,
+    given_type: str,
+    k_min: int,
+):
+    """
+    Purpose:
+        computer cluser in grakn
+    Args:
+        codexkg: codex kg
+        action: str: cluster specific action
+        cluster_type: type of cluster,
+        cluster_concepts: list of concepts,
+        given_type: concept to hone in on,
+        k_min: how many k groups,
+    Returns:
+        codex_query - Cluster object
+    """
+    cluster_obj = {}
+
+    if action == "connected":
+
+        cluster_obj["query_type"] = "cluster"
+        cluster_obj["choice"] = "cluster-in"
+        cluster_obj["concepts"] = cluster_concepts
+
+        query_string = f"compute cluster in {concept_string(cluster_concepts)}, using connected-component;"
+
+        cluster_obj["query_string"] = query_string
+
+    elif action == "k-core":
+
+        cluster_obj["query_type"] = "cluster"
+        cluster_obj["choice"] = "k-core"
+        cluster_obj["concepts"] = cluster_concepts
+        query_string = (
+            f"compute cluster in {concept_string(cluster_concepts)}, using k-core;"
+        )
+
+        if k_min is not None:
+
+            if k_min < 2:
+                raise ValueError(f"k_min: {k_min} is less than 2")
+
+            query_string = f"compute cluster in {concept_string(cluster_concepts)}, using k-core,where k={k_min};"
+
+        cluster_obj["query_string"] = query_string
+
+    else:
+        raise TypeError(f"Unknown choice{choice} must be All,Subgraph, or Given type")
+
+    curr_query = CodexQueryCluster(query=cluster_obj)
+
+    return curr_query
+
+    # if st.button("Query"):
+    #     # st.success("Doing query")
+
+    #     with st.spinner("Doing query..."):
+    #         answers = codexkg.query(curr_query)
+    #     # st.write(answers)
+
+    #     viz.cluster_graph(answers, ents, rels, codexkg)
+
+
 def codex_cluster_action(
     codexkg,
     cluster_action,
@@ -584,4 +889,30 @@ def codex_cluster_action(
     given_type: str,
     k_min: int,
 ):
-    logging.info("hello")
+    """
+    Purpose:
+        Cluster Query on Grakn
+    Args:
+        codexkg: codex kg
+        cluster_action: what action to cluster with
+        action: str: cluster specific action
+        cluster_type: type of cluster,
+        cluster_concepts: list of concepts,
+        given_type: concept to hone in on,
+        k_min: how many k groups,
+    Returns:
+        codex_query - Cluster object
+    """
+
+    if cluster_action == "centerality":
+        return compute_centrality(
+            codexkg, action, cluster_type, cluster_concepts, given_type, k_min
+        )
+    elif cluster_action == "cluster":
+        return compute_cluster(
+            codexkg, action, cluster_type, cluster_concepts, given_type, k_min
+        )
+    else:
+        raise ValueError(
+            f"cluster_action: {cluster_action} is not defined, muse be either centerality or cluster"
+        )

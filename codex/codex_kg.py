@@ -21,7 +21,13 @@ from .grakn_functions import (
 )
 
 from .codex_query import CodexQueryFind, CodexQuery, CodexQueryCompute, CodexQueryRule
-from .codex_query_builder import find_action, compute_action, codex_cluster_action
+from .codex_query_builder import (
+    find_action,
+    compute_action,
+    codex_cluster_action,
+    make_rule_cond,
+    make_rule_string,
+)
 
 
 class CodexKg:
@@ -374,6 +380,130 @@ class CodexKg:
             logging.error(error)
             return None
 
+    def search_rule(self, rule_name):
+
+        query = f"match $x isa {rule_name}; get;"
+
+        rule_ans = self.rules_map[rule_name]["rule_string_ans"]
+
+        rule_resp = []
+
+        rule_return_obj = []
+
+        answers = self.raw_graql(query, "read")
+        logging.info(answers)
+        answer_counter = 0
+        answer = answers[0]
+        answer_keys = list(answers[0].keys())
+
+        for key_con in answer_keys:
+
+            explanation = answer[key_con]["explanation"]
+            exp_keys = list(explanation.keys())
+            rule_new = rule_ans
+
+            for exp_key in exp_keys:
+
+                if exp_key in rule_ans:
+                    concept = exp_key.split("_")[0]
+
+                    if concept in list(self.entity_map.keys()):
+                        concept_key = self.entity_map[concept]["key"]
+
+                        try:
+                            rule_new = rule_new.replace(
+                                str(exp_key), str(explanation[exp_key][concept_key])
+                            )
+                        except:
+                            rule_new = rule_new
+
+            answer_counter += 1
+            if rule_new in rule_resp:
+                continue
+            rule_resp.append(rule_new)
+
+            rule_obj = {}
+
+            rule_obj["concept1"] = answer[key_con]["concepts"][0]
+            rule_obj["concept2"] = answer[key_con]["concepts"][1]
+            rule_obj["explanation"] = rule_new
+
+            rule_return_obj.append(rule_obj)
+
+        return rule_return_obj
+
+    def make_rule(self, rule_cond1: dict, rule_cond2: dict, rule_name: str):
+
+        rule_obj = {}
+
+        rule_obj["name"] = rule_name
+        rule_obj["cond1"] = rule_cond1
+        rule_obj["cond2"] = rule_cond2
+
+        rule_string, rule_string_ans = make_rule_string(rule_obj)
+
+        curr_query = CodexQueryRule(
+            rule=rule_obj, rule_string=rule_string, rule_string_ans=rule_string_ans
+        )
+
+        rule_resp = self.query(curr_query)
+
+        return rule_resp
+
+    def rule_condition(
+        self,
+        concept: str,
+        concept_attrs: list = [],
+        concept_conds: list = [],
+        concept_values: list = [],
+        rel_actions: list = [],
+        concept_rels: list = [],
+        concept_rel_attrs: list = [],
+        concept_rel_conds: list = [],
+        concept_rel_values: list = [],
+        with_rel_attrs: list = [],
+        with_rel_conds: list = [],
+        with_rel_values: list = [],
+    ):
+        """
+        Purpose:
+            Find data in Knowledge Graph
+        Args:
+            concept: Concept to find
+            concept_attrs: Concept attributes
+            concept_conds: condition for attribute
+            concept_values: value for condition
+            rel_actions: Find releation attrubite
+            concept_rels= Relation to search for
+            concept_rel_attrs=attributes for relation attribute
+            concept_rel_conds=conditions for relation attribute
+            concept_rel_values=values for relation attribute,
+            with_rel_attrs=attributes of the relationship ,
+            with_rel_conds=conditions of the relationship ,
+            with_rel_values=values of the relationship ,
+        Returns:
+            answers: answers to the query
+        """
+        logging.info(f"Making {concept} rule condition")
+
+        query_obj = make_rule_cond(
+            self,
+            concept,
+            concept_attrs,
+            concept_conds,
+            concept_values,
+            rel_actions,
+            concept_rels,
+            concept_rel_attrs,
+            concept_rel_conds,
+            concept_rel_values,
+            with_rel_attrs,
+            with_rel_conds,
+            with_rel_values,
+        )
+
+        return query_obj
+
     def find(
         self,
         concept: str,
@@ -471,7 +601,7 @@ class CodexKg:
         )
 
         # do query.
-        # return self.query(query_obj)
+        return self.query(query_obj)
 
     # TODO
     # streamlit example
@@ -490,7 +620,7 @@ class CodexKg:
     #  tweets - text, char length, has_link, is_retweet,
     #  user - name, num_followers, following, verified
 
-    # api? - This is the api, almost there...
+    # api? - This is the api, done?
 
     # date quieres - check if string matches date format, if not then its a string
     # not quieres?
