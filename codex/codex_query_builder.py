@@ -88,7 +88,7 @@ def cond_setter(
 
     if attr_type == "string":
 
-        conds = ["equals", "contains"]
+        conds = ["equals", "contains", "not equals", "not contains"]
 
         if concept_cond in conds:
 
@@ -100,7 +100,7 @@ def cond_setter(
             )
 
     elif attr_type == "long" or attr_type == "double":
-        conds = ["equals", "less than", "greater than"]
+        conds = ["equals", "less than", "greater than", "not equals"]
 
         if concept_cond in conds:
             cond_json = cond_json_maker(concept_cond, concept_value)

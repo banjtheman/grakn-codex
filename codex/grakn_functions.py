@@ -175,6 +175,18 @@ def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
                 )
                 contain_statements.append(contain_string)
 
+            if cond_type == "not equals":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = (
+                    f'not {{ ${attr_concept}_{curr_attr}{dif_1} == "{cond_value}";}}'
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "not contains":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = f'not {{ ${attr_concept}_{curr_attr}{dif_1} contains "{cond_value}";}}'
+                contain_statements.append(contain_string)
+
             if cond_type == "congruent":
                 # {Company_name_X == Company_name_Y};
                 grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
@@ -208,6 +220,12 @@ def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
         else:
             if cond_type == "equals":
                 grakn_query += f" {cond_value}"
+            if cond_type == "not equals":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                contain_string = (
+                    f'not {{ ${attr_concept}_{curr_attr}{dif_1} == "{cond_value}";}}'
+                )
+                contain_statements.append(contain_string)
             if cond_type == "greater than":
                 grakn_query += f" > {cond_value}"
             if cond_type == "less than":
@@ -265,10 +283,30 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
                 )
                 contain_statements.append(contain_string)
 
+            if cond_type == "not equals":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = (
+                    f'not {{ ${attr_concept}_{curr_attr} == "{cond_value}";}}'
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "not contains":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = (
+                    f'not {{ ${attr_concept}_{curr_attr} contains "{cond_value}";}}'
+                )
+                contain_statements.append(contain_string)
+
         # if query_check_type == "double" or query_check_type == "long":
         else:
             if cond_type == "equals":
                 grakn_query += f" {cond_value}"
+            if cond_type == "not equals":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = (
+                    f'not {{ ${attr_concept}_{curr_attr} == "{cond_value}";}}'
+                )
+                contain_statements.append(contain_string)
             if cond_type == "greater than":
                 grakn_query += f" > {cond_value}"
             if cond_type == "less than":

@@ -61,6 +61,24 @@ def search_for_rule(codexkg):
     logging.info(ans)
 
 
+def not_query(codexkg):
+
+    # Find Company that has a name equal to google
+    ans = codexkg.find(
+        concept="Company",
+        concept_attrs=["name"],
+        concept_conds=["not equals"],
+        concept_values=["Google"],
+        rel_actions=["producer"],
+        concept_rels=["Product"],
+        concept_rel_attrs=[["product_type"]],
+        concept_rel_conds=[["not equals"]],
+        concept_rel_values=[["phone"]],
+    )
+
+    logging.info(ans)
+
+
 def quick_search(codexkg):
 
     ans = codexkg.cluster(
@@ -177,8 +195,10 @@ def main():
 
     codexkg.create_db("tech_example")
 
-    make_rules(codexkg)
-    search_for_rule(codexkg)
+    not_query(codexkg)
+
+    # make_rules(codexkg)
+    # search_for_rule(codexkg)
     # loading_data(codexkg)
     # quick_search(codexkg)
 

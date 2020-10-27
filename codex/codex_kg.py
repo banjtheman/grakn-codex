@@ -620,10 +620,11 @@ class CodexKg:
     #  tweets - text, char length, has_link, is_retweet,
     #  user - name, num_followers, following, verified
 
-    # api? - This is the api, done?
+    # api? - This is the api, done
 
-    # date quieres - check if string matches date format, if not then its a string
-    # not quieres?
+    # not queries? - done
+    # bool queries - check if true/false?
+    # date queries - check if string matches date format, if not then its a string
 
     # biz case - shower
 
