@@ -83,12 +83,9 @@ def cond_setter(
 
     cond_json = {}
 
-    # logging.info("the type:")
-    # logging.info(attr_type)
-
     if attr_type == "string":
 
-        conds = ["equals", "contains", "not equals", "not contains"]
+        conds = ["equals", "contains", "not equals", "not contains", "congruent"]
 
         if concept_cond in conds:
 
@@ -100,7 +97,7 @@ def cond_setter(
             )
 
     elif attr_type == "long" or attr_type == "double":
-        conds = ["equals", "less than", "greater than", "not equals"]
+        conds = ["equals", "less than", "greater than", "not equals", "congruent"]
 
         if concept_cond in conds:
             cond_json = cond_json_maker(concept_cond, concept_value)
@@ -108,7 +105,23 @@ def cond_setter(
             raise ValueError(f"For int values {concept_cond} is not in {conds}")
 
     elif attr_type == "bool":
-        conds = ["true", "false"]
+        conds = ["True", "False"]
+
+        if concept_cond in conds:
+            cond_json = cond_json_maker(concept_cond, concept_value)
+        else:
+            raise ValueError(f"For bool values {concept_cond} is not in {conds}")
+
+    elif attr_type == "date":
+        conds = [
+            "on",
+            "after",
+            "before",
+            "between",
+            "not on",
+            "not between",
+            "congruent",
+        ]
 
         if concept_cond in conds:
             cond_json = cond_json_maker(concept_cond, concept_value)
@@ -116,7 +129,7 @@ def cond_setter(
             raise ValueError(f"For bool values {concept_cond} is not in {conds}")
 
     else:
-        logging.info("error?")
+        logging.error(f"error invalid type attr_type: {attr_type}")
         raise TypeError("Undefined Type")
 
     return cond_json

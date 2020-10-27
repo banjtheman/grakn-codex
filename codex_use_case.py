@@ -188,14 +188,60 @@ def quick_search(codexkg):
     logging.info(ans)
 
 
+def date_query(codexkg):
+
+    # Find Company that has a name equal to google
+    # ans = codexkg.find(
+    #     concept="Game",
+    #     concept_attrs=["date"],
+    #     concept_conds=["congruent"],
+    #     concept_values=["2019-10-03 2020-05-02"],
+    # )
+
+    # logging.info(ans)
+
+    # Find Company that has a name equal to google
+    cond1 = codexkg.rule_condition(
+        concept="Game",
+        concept_attrs=["date"],
+        concept_conds=["congruent"],
+        concept_values=[""],
+    )
+
+    # Find Products that has a name that contains google
+    cond2 = codexkg.rule_condition(
+        concept="Game",
+        concept_attrs=["date"],
+        concept_conds=["congruent"],
+        concept_values=[""],
+    )
+
+    rule_name = "same_day_release"
+
+    # ans = codexkg.make_rule(cond1, cond2, rule_name)
+    # logging.info(ans)
+
+    ans = codexkg.search_rule("same_day_release")
+    logging.info(ans)
+
+
 def main():
 
     logging.info("This will highlight how we can use codex to create knowledge graphs")
     codexkg = CodexKg()
 
-    codexkg.create_db("tech_example")
+    codexkg.create_db("game_dates")
+    # load_time_data(codexkg)
 
-    not_query(codexkg)
+    date_query(codexkg)
+
+    # delete_keyspace(codexkg,"game_dates")
+
+    # codexkg.create_db("tech_example")
+
+    # codexkg.create_db("game_dates")
+
+    # not_query(codexkg)
 
     # make_rules(codexkg)
     # search_for_rule(codexkg)
@@ -215,8 +261,16 @@ def search_data(codexkg):
     logging.info(ans)
 
 
-def delete_keyspace(codexkg):
-    codexkg.delete_db("tech_example")  # Delete keyspace
+def delete_keyspace(codexkg, val):
+    codexkg.delete_db(val)  # Delete keyspace
+
+
+def load_time_data(codexkg):
+
+    games = pd.read_csv("sample_data/example_dates.csv")
+
+    # create entites
+    codexkg.create_entity(games, "Game", "game")
 
 
 def loading_data(codexkg):

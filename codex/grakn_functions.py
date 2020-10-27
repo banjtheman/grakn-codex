@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Tuple
+from dateutil.parser import parse
 
 import pandas as pd
 from grakn.client import GraknClient, ValueType
@@ -25,16 +26,20 @@ def turn_value_type(val: ValueType):
     if val == ValueType.STRING:
         return "string"
 
-    if val == ValueType.DOUBLE:
+    elif val == ValueType.DOUBLE:
         return "double"
 
-    if val == ValueType.LONG:
+    elif val == ValueType.LONG:
         return "long"
 
-    if val == ValueType.BOOLEAN:
+    elif val == ValueType.BOOLEAN:
         return "bool"
 
-    return "date"
+    elif val == ValueType.DATETIME:
+        return "date"
+
+    else:
+        raise TypeError(f"Invalid type {val}")
 
 
 def rev_value_type(val: str) -> ValueType:
@@ -49,16 +54,20 @@ def rev_value_type(val: str) -> ValueType:
     if val == "string":
         return ValueType.STRING
 
-    if val == "double":
+    elif val == "double":
         return ValueType.DOUBLE
 
-    if val == "long":
+    elif val == "long":
         return ValueType.LONG
 
-    if val == "bool":
+    elif val == "bool":
         return ValueType.BOOLEAN
 
-    return ValueType.DATETIME
+    elif val == "date":
+        return ValueType.DATETIME
+
+    else:
+        raise TypeError(f"Invalid value {val}")
 
 
 def check_types(df: pd.DataFrame, col: str) -> ValueType:
@@ -71,20 +80,31 @@ def check_types(df: pd.DataFrame, col: str) -> ValueType:
     Returns:
         Grakn Value Type
     """
-    if is_string_dtype(df[col]):
-        return ValueType.STRING
 
-    if str(df[col].dtype) == "float64":
+    if col == "desc":
+        raise ValueError("desc is a reserved word sorry, rename your column")
+
+    if is_string_dtype(df[col]):
+
+        # check if string is a date
+        try:
+            parse(df[col][0])
+            logging.info(f"This is a date good {df[col][0]}")
+            return ValueType.DATETIME
+        except:
+            return ValueType.STRING
+
+    elif str(df[col].dtype) == "float64":
         return ValueType.DOUBLE
 
-    if str(df[col].dtype) == "int64":
+    elif str(df[col].dtype) == "int64":
         return ValueType.LONG
 
-    if str(df[col].dtype) == "bool":
+    elif str(df[col].dtype) == "bool":
         return ValueType.BOOLEAN
 
-    # TODO figure out how to get dates
-    return ValueType.DATETIME
+    else:
+        raise TypeError(f"Could not figure out type for {col}")
 
 
 def create_relationship_query(entity_map: dict, rel_name: str, rel_map: dict) -> str:
@@ -217,7 +237,7 @@ def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
                     # contain_statements.append(nan_string2)
 
         # if query_check_type == "double" or query_check_type == "long":
-        else:
+        elif query_check_type == "long" or query_check_type == "double":
             if cond_type == "equals":
                 grakn_query += f" {cond_value}"
             if cond_type == "not equals":
@@ -230,6 +250,105 @@ def find_cond_checker_rule(attr: dict, dif_1: str) -> Tuple[str, list]:
                 grakn_query += f" > {cond_value}"
             if cond_type == "less than":
                 grakn_query += f" < {cond_value}"
+
+            if cond_type == "congruent":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                if dif_1 == "_B":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_A == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_Y":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_X == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_A":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_B == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_X":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_Y == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                contain_statements.append(attr_string)
+
+        elif query_check_type == "bool":
+            grakn_query += ' "' + cond_value + '"'
+
+        elif query_check_type == "date":
+
+            if cond_type == "between" or cond_type == " not between":
+                conds = cond_value.split(" ")
+
+                cond_value = make_dt_string(conds[0])
+                cond_value2 = make_dt_string(conds[1])
+            elif cond_type == "congruent":
+                cond_value = ""
+            else:
+                cond_value = make_dt_string(cond_value)
+
+            if cond_type == "on":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                contain_string = (
+                    f"{{ ${attr_concept}_{curr_attr}{dif_1} == {cond_value};}}"
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "not on":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                contain_string = (
+                    f"not {{ ${attr_concept}_{curr_attr}{dif_1} == {cond_value};}}"
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "after":
+
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                contain_string = (
+                    f"{{ ${attr_concept}_{curr_attr}{dif_1} > {cond_value};}}"
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "before":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                contain_string = (
+                    f"{{ ${attr_concept}_{curr_attr}{dif_1} < {cond_value};}}"
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "between":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                contain_string = (
+                    f"{{ ${attr_concept}_{curr_attr}{dif_1} > {cond_value};}}"
+                )
+                contain_statements.append(contain_string)
+                contain_string = (
+                    f"{{ ${attr_concept}_{curr_attr}{dif_1} < {cond_value2};}}"
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "not between":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                contain_string = (
+                    f"not {{ ${attr_concept}_{curr_attr}{dif_1} > {cond_value};}}"
+                )
+                contain_statements.append(contain_string)
+                contain_string = (
+                    f"not {{ ${attr_concept}_{curr_attr}{dif_1} < {cond_value2};}}"
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "congruent":
+                grakn_query += f" ${attr_concept}_{curr_attr}{dif_1}"
+                if dif_1 == "_B":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_A == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_Y":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_X == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_A":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_B == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                if dif_1 == "_X":
+                    attr_string = f"{{ ${attr_concept}_{curr_attr}_Y == ${attr_concept}_{curr_attr}{dif_1};}}"
+
+                contain_statements.append(attr_string)
+
     return grakn_query, contain_statements
 
 
@@ -297,8 +416,11 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
                 )
                 contain_statements.append(contain_string)
 
+            if cond_type == "congruent":
+                raise ValueError(f"congruent is not supported for find")
+
         # if query_check_type == "double" or query_check_type == "long":
-        else:
+        elif query_check_type == "double" or query_check_type == "long":
             if cond_type == "equals":
                 grakn_query += f" {cond_value}"
             if cond_type == "not equals":
@@ -311,6 +433,64 @@ def find_cond_checker(attr: dict) -> Tuple[str, list]:
                 grakn_query += f" > {cond_value}"
             if cond_type == "less than":
                 grakn_query += f" < {cond_value}"
+
+            if cond_type == "congruent":
+                raise ValueError(f"congruent is not supported for find")
+
+        elif query_check_type == "bool":
+            grakn_query += ' "' + cond_value + '"'
+
+        elif query_check_type == "date":
+
+            if cond_type == "between" or cond_type == "not between":
+                conds = cond_value.split(" ")
+
+                cond_value = make_dt_string(conds[0])
+                cond_value2 = make_dt_string(conds[1])
+            elif cond_type == "congruent":
+                raise ValueError(f"congruent is not supported for find")
+            else:
+                cond_value = make_dt_string(cond_value)
+
+            if cond_type == "on":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = f"{{ ${attr_concept}_{curr_attr} == {cond_value};}}"
+                contain_statements.append(contain_string)
+
+            if cond_type == "after":
+
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = f"{{ ${attr_concept}_{curr_attr} > {cond_value};}}"
+                contain_statements.append(contain_string)
+
+            if cond_type == "before":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = f"{{ ${attr_concept}_{curr_attr} < {cond_value};}}"
+                contain_statements.append(contain_string)
+
+            if cond_type == "between":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = f"{{ ${attr_concept}_{curr_attr} > {cond_value};}}"
+                contain_statements.append(contain_string)
+                contain_string = f"{{ ${attr_concept}_{curr_attr} < {cond_value2};}}"
+                contain_statements.append(contain_string)
+
+            if cond_type == "not on":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = (
+                    f"not {{ ${attr_concept}_{curr_attr} == {cond_value};}}"
+                )
+                contain_statements.append(contain_string)
+
+            if cond_type == "not between":
+                grakn_query += f" ${attr_concept}_{curr_attr}"
+                contain_string = f"not {{ ${attr_concept}_{curr_attr} > {cond_value};}}"
+                contain_statements.append(contain_string)
+                contain_string = (
+                    f"not {{ ${attr_concept}_{curr_attr} < {cond_value2};}}"
+                )
+                contain_statements.append(contain_string)
+
     return grakn_query, contain_statements
 
 
@@ -1245,6 +1425,19 @@ def query_grakn(session, query_object) -> dict:
 # [{"rel1_name":"produces","rel1":"Company","rel1_value":"Company A"}]
 
 
+def make_dt_string(val):
+
+    try:
+        dt = parse(val)
+        # convert string to grakn format
+        dt_string = f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{str(dt.microsecond)[:3]}'
+    except Exception as error:
+        logging.error(error)
+        raise ValueError(f"could not turn {val} to a date string")
+
+    return dt_string
+
+
 def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict) -> None:
     """
     Purpose:
@@ -1340,12 +1533,28 @@ def commit_relationship(row: pd.Series, session, rel_name: str, rel_map: dict) -
 
         for attr in row_attrs:
 
-            if rel_map["cols"][attr]["type"] == "string":
+            if (
+                rel_map["cols"][attr]["type"] == "string"
+                or rel_map["cols"][attr]["type"] == "bool"
+            ):
                 graql_insert_query += (
                     "has " + str(attr) + ' "' + str(sanitize_text(row[attr])) + '"'
                 )
-            else:
+            elif (
+                rel_map["cols"][attr]["type"] == "long"
+                or rel_map["cols"][attr]["type"] == "double"
+            ):
                 graql_insert_query += "has " + str(attr) + " " + str(row[attr])
+
+            # This is a date
+            else:
+                dt = parse(row[attr])
+                # convert string to grakn format
+                dt_string = (
+                    f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{str(dt.microsecond)[:3]}'
+                )
+                # dt_string = dt.strftime("%Y-%m-%dT%H:%M:%S")
+                graql_insert_query += "has " + str(attr) + " " + dt_string
 
             # check if last
             if attr_counter == attr_len:
@@ -1494,8 +1703,20 @@ def commit_entity(row: pd.Series, session, entity_name: str, entity_map: dict) -
             graql_insert_query += (
                 "has " + str(col) + ' "' + str(sanitize_text(row[col])) + '"'
             )
-        else:
+        elif (
+            current_ent["cols"][col]["type"] == "long"
+            or current_ent["cols"][col]["type"] == "double"
+        ):
             graql_insert_query += "has " + str(col) + " " + str(row[col])
+
+        # This is a date
+        else:
+            dt = parse(row[col])
+            # convert string to grakn format
+            dt_string = f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{str(dt.microsecond)[:3]}'
+            # dt_string = dt.strftime("%Y-%m-%dT%H:%M:%S")
+            # logging.info(f"adding dt{dt_string}")
+            graql_insert_query += "has " + str(col) + " " + dt_string
 
         # check if last
         if entity_counter == entity_len:

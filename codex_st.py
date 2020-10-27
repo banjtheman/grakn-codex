@@ -234,7 +234,7 @@ def cond_setter(
         cond_string = f" that {selected_cond} {cond_value}"
 
     if attr_type == "bool":
-        conds = ["true", "false"]
+        conds = ["True", "False"]
         selected_cond = "Equals"
         cond_value = st.selectbox(
             "Select Condition",

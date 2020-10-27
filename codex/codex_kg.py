@@ -623,8 +623,8 @@ class CodexKg:
     # api? - This is the api, done
 
     # not queries? - done
-    # bool queries - check if true/false?
-    # date queries - check if string matches date format, if not then its a string
+    # bool queries - check if true/false? - doneish?
+    # date queries - check if string matches date format, if not then its a string - done and done
 
     # biz case - shower
 
