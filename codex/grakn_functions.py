@@ -151,7 +151,7 @@ def create_relationship_query(entity_map: dict, rel_name: str, rel_map: dict) ->
 
     return graql_insert_query
 
-
+#Example Rule
 # define same_loc_not_nan sub relation, relates same_loc_not_nan_relationship_1, relates same_loc_not_nan_relationship_2;Tweet sub entity, plays same_loc_not_nan_relationship_1, plays same_loc_not_nan_relationship_2;Tweet sub entity, plays same_loc_not_nan_relationship_1, plays same_loc_not_nan_relationship_2;same_loc_not_nan-rule sub rule,when {$Tweet_A isa Tweet, has location $Tweet_location_A;{$Tweet_location_A != "nan";};{$Tweet_location_A != "";};$Tweet_B isa Tweet, has location $Tweet_location_B;{$Tweet_location_B != "nan";};{$Tweet_location_B != "";};$Tweet_A != $Tweet_B;},then {(same_loc_not_nan_relationship_1: $Tweet_A, same_loc_not_nan_relationship_2: $Tweet_B) isa same_loc_not_nan;};
 
 
@@ -1390,7 +1390,6 @@ def query_grakn(session, query_object) -> dict:
     Returns:
         answers_df_map: Answers to the queries by entity
     """
-    # logging.info(f"{query_object}")
     answers = {}
 
     if query_object.action == "Find":
@@ -1417,16 +1416,16 @@ def query_grakn(session, query_object) -> dict:
         return answers
 
 
-# rel1: "Company"
-# rel1_name: "produces"
-# rel2: "Sample"
-# rel2_name: "produced"
-# rel_name: "Productize"
-# [{"rel1_name":"produces","rel1":"Company","rel1_value":"Company A"}]
 
-
-def make_dt_string(val):
-
+def make_dt_string(val: str) -> str:
+    """
+    Purpose:
+       Make a datetime string
+    Args:
+        val: string to make a datetime
+    Returns:
+        dt_string - date time string
+    """
     try:
         dt = parse(val)
         # convert string to grakn format
@@ -1754,16 +1753,154 @@ def add_entities_into_grakn(
     df.apply(lambda row: commit_entity(row, session, entity_name, entity_map), axis=1)
 
 
+def get_all_rels(session, entity_map):
+    """
+    Purpose:
+       Get relationship map
+    Args:
+        session - Current grakn session
+        entity_map - the entity map
+    Returns:
+        rel_map - the rel map
+    """
+    # Example rel map
+    # {'Productize': {'rel1': {'role': 'produced', 'entity': 'Product', 'key': 'name', 'key_type': 'string'}, 'rel2': {'role': 'producer', 'entity': 'Company', 'key': 'name', 'key_type': 'string'}, 'cols': {'codex_details': {'type': 'string'}, 'note': {'type': 'string'}}}}
+
+    with session.transaction().write() as transaction:
+        entity_type = transaction.get_schema_concept("relation")
+        subs = list(entity_type.subs())
+        # logging.info(subs)
+        subs_labels = [sub.label() for sub in subs]
+        logging.info(subs_labels)
+        subs_labels.pop(0)
+        rel_map = {}
+
+        for sub_label in subs_labels:
+            # setup ent map
+            logging.info(f"##################{sub_label}##################")
+            rel_map[sub_label] = {}
+            rel_map[sub_label]["cols"] = {}
+            rel_map[sub_label]["rel1"] = {}
+            rel_map[sub_label]["rel2"] = {}
+
+            curr_sub = transaction.get_schema_concept(sub_label)
+
+            current_attrs = curr_sub.attributes()
+
+            labels = []
+            for attr in current_attrs:
+
+                label_obj = {}
+                label_obj["type"] = turn_value_type(attr.value_type())
+
+                label_obj["label"] = attr.label()
+                labels.append(label_obj)
+
+            for label in labels:
+                rel_map[sub_label]["cols"][label["label"]] = {}
+                rel_map[sub_label]["cols"][label["label"]]["type"] = label["type"]
+
+            roles = curr_sub.roles()
+
+            counter = 0
+            for role in roles:
+
+                players = role.players()
+
+                with_ent = ""
+                for player in players:
+                    with_ent = player.label()
+
+                # {'role': 'produced', 'entity': 'Product', 'key': 'name', 'key_type': 'string'}
+                ent_key = entity_map[with_ent]["key"]
+                ent_key_type = entity_map[with_ent]["cols"][ent_key]["type"]
+
+                if counter == 0:
+                    rel_map[sub_label]["rel1"]["role"] = role.label()
+                    rel_map[sub_label]["rel1"]["entity"] = with_ent
+                    rel_map[sub_label]["rel1"]["key"] = ent_key
+                    rel_map[sub_label]["rel1"]["key_type"] = ent_key_type
+                else:
+                    rel_map[sub_label]["rel2"]["role"] = role.label()
+                    rel_map[sub_label]["rel2"]["entity"] = with_ent
+                    rel_map[sub_label]["rel2"]["key"] = ent_key
+                    rel_map[sub_label]["rel2"]["key_type"] = ent_key_type
+
+                counter += 1
+
+        logging.info(rel_map)
+        return rel_map
+
+
 # TODO do we need this function?
-# def get_all_entities(session):
+def get_all_entities(session):
 
-#     with session.transaction().write() as transaction:
-#         entity_type = transaction.get_schema_concept("entity")
-#         all_entities_iter = entity_type.instances()
-#         someEntity = next(all_entities_iter)
+    with session.transaction().write() as transaction:
+        entity_type = transaction.get_schema_concept("entity")
+        subs = list(entity_type.subs())
+        subs_labels = [sub.label() for sub in subs]
+        logging.info(subs_labels)
+        subs_labels.pop(0)
 
-#         for ent in all_entities_iter:
-#             print(ent.type().label())
+        # Example ent map
+        # : {'Company': {'key': 'name', 'cols': {'name': {'type': 'string'}, 'budget': {'type': 'double'}}, 'rels': {'Productize': {'plays': 'producer', 'with_ent': 'Product'}}}, 'Product': {'key': 'name', 'cols': {'name': {'type': 'string'}, 'product_type': {'type': 'string'}}, 'rels': {'Productize': {'plays': 'produced', 'with_ent': 'Company'}}}}
+
+        # Making ent_map right here
+        ent_map = {}
+        for sub_label in subs_labels:
+            # setup ent map
+            logging.info(f"##################{sub_label}##################")
+            ent_map[sub_label] = {}
+            ent_map[sub_label]["cols"] = {}
+            ent_map[sub_label]["rels"] = {}
+
+            curr_sub = transaction.get_schema_concept(sub_label)
+            current_attrs = curr_sub.attributes()
+
+            labels = []
+            for attr in current_attrs:
+
+                label_obj = {}
+                label_obj["type"] = turn_value_type(attr.value_type())
+
+                label_obj["label"] = attr.label()
+                labels.append(label_obj)
+
+            keys = [key.label() for key in curr_sub.keys()]
+
+            # Only one key?
+            ent_map[sub_label]["key"] = keys[0]
+
+            # logging.info(keys)
+            # labels = [attr.label() for attr in current_attrs]
+            # logging.info(labels)
+
+            for label in labels:
+                ent_map[sub_label]["cols"][label["label"]] = {}
+                ent_map[sub_label]["cols"][label["label"]]["type"] = label["type"]
+
+
+            roles = curr_sub.playing()
+            for role in roles:
+
+                rels = role.relations()
+                players = role.players()
+
+                with_ent = ""
+
+                for player in players:
+
+                    if player.label() != sub_label:
+                        with_ent = player.label()
+
+                for rel in rels:
+
+                    ent_map[sub_label]["rels"][rel.label()] = {}
+                    ent_map[sub_label]["rels"][rel.label()]["plays"] = role.label()
+                    ent_map[sub_label]["rels"][rel.label()]["with_ent"] = with_ent
+
+        logging.info(ent_map)
+        return ent_map
 
 
 def load_entity_into_grakn(

@@ -13,7 +13,8 @@ from .grakn_functions import add_entities_into_grakn
 from .grakn_functions import (
     load_relationship_into_grakn,
     add_relationship_data,
-    # get_all_entities,
+    get_all_entities,
+    get_all_rels,
     query_grakn,
     run_find_query,
     raw_query_read_grakn,
@@ -62,8 +63,8 @@ class CodexKg:
         self.rules_map = {}
 
         # new stuff who dis
-        self.lookup = {}
-        self.query_map = {}
+        # self.lookup = {}
+        # self.query_map = {}
 
         # connect to redis
         try:
@@ -74,19 +75,28 @@ class CodexKg:
             logging.error("Couldnt connect to cache:" + str(error))
             raise
 
-    # TODO can we get this data without having to rely on redis?
-    # def get_entites_grakn(self):
-    #     logging.info("get all entites")
+    def get_concepts_grakn(self):
+        """
+        Purpose:
+            Get all concept in current keyspace
+        Args:
+            N/A
+        Returns:
+            entity_map: Entity concepts
+            rel_map: Relation concepts
+        """
+        logging.info("get all concepts")
 
-    #     try:
-    #         with GraknClient(uri=self.uri, credentials=self.creds) as client:
-    #             with client.session(keyspace=self.keyspace) as session:
-    #                 get_all_entities(session)
+        try:
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                with client.session(keyspace=self.keyspace) as session:
+                    entity_map = get_all_entities(session)
+                    rel_map = get_all_rels(session, entity_map)
 
-    #                 return 0
-    #     except Exception as error:
-    #         logging.error(error)
-    #         return -1
+                    return entity_map, rel_map
+        except Exception as error:
+            logging.error(error)
+            return -1
 
     def get_keyspaces(self) -> list:
         """
@@ -104,7 +114,7 @@ class CodexKg:
             logging.error(error)
             return []
 
-    def create_db(self, db_name: str) -> int:
+    def create_db(self, db_name: str, check_grakn=False) -> int:
         """
         Purpose:
             Connect to Grakn keyspace
@@ -137,8 +147,8 @@ class CodexKg:
                     self.entity_map = curr_keyspace["entity_map"]
                     self.rel_map = curr_keyspace["rel_map"]
                     self.rules_map = curr_keyspace["rules_map"]
-                    self.query_map = {}
-                    self.lookup_map = {}
+                    # self.query_map = {}
+                    # self.lookup_map = {}
 
                     # logging.info(self.rkey)
                     # logging.info(self.rel_map)
@@ -148,17 +158,33 @@ class CodexKg:
                 else:
                     logging.info("Creating new keypsace in redis")
                     blank_keyspace = {}
-                    blank_keyspace["entity_map"] = {}
-                    blank_keyspace["rel_map"] = {}
+
+                    # check the db if there is data first
+
+                    if check_grakn:
+                        logging.info("Checking grakn for concepts")
+                        ent_map, rel_map = self.get_concepts_grakn()
+                    else:
+                        ent_map = {}
+                        rel_map = {}
+
+                    blank_keyspace["entity_map"] = ent_map
+                    blank_keyspace["rel_map"] = rel_map
+
                     blank_keyspace["rules_map"] = {}
-                    blank_keyspace["lookup_map"] = {}
-                    blank_keyspace["lookup_map"]["Find"] = {}
-                    blank_keyspace["lookup_map"]["Compute"] = {}
-                    blank_keyspace["lookup_map"]["Cluster"] = {}
-                    blank_keyspace["lookup_map"]["Reason"] = {}
-                    blank_keyspace["lookup_map"]["Center"] = {}
-                    blank_keyspace["query_map"] = {}
+
+                    # TODO someother time for nl queries
+                    # blank_keyspace["lookup_map"] = {}
+                    # blank_keyspace["lookup_map"]["Find"] = {}
+                    # blank_keyspace["lookup_map"]["Compute"] = {}
+                    # blank_keyspace["lookup_map"]["Cluster"] = {}
+                    # blank_keyspace["lookup_map"]["Reason"] = {}
+                    # blank_keyspace["lookup_map"]["Center"] = {}
+                    # blank_keyspace["query_map"] = {}
                     self.cache.set(rkey, json.dumps(blank_keyspace))
+
+                    self.entity_map = ent_map
+                    self.rel_map = rel_map
 
                 return 0
         except Exception as error:
@@ -330,8 +356,6 @@ class CodexKg:
         Returns:
             answers: answers to the query
         """
-
-        # match (competitors_relationship_1: $x, competitors_relationship_2: $y) isa competitors; get;
         try:
             with GraknClient(uri=self.uri, credentials=self.creds) as client:
                 with client.session(keyspace=self.keyspace) as session:
@@ -380,8 +404,15 @@ class CodexKg:
             logging.error(error)
             return None
 
-    def search_rule(self, rule_name):
-
+    def search_rule(self, rule_name: str) -> dict:
+        """
+        Purpose:
+            Search concepts by rule name
+        Args:
+            rule_name: The name of the rule
+        Returns:
+            rule_return_obj: rule object response
+        """
         query = f"match $x isa {rule_name}; get;"
 
         rule_ans = self.rules_map[rule_name]["rule_string_ans"]
@@ -432,7 +463,17 @@ class CodexKg:
 
         return rule_return_obj
 
-    def make_rule(self, rule_cond1: dict, rule_cond2: dict, rule_name: str):
+    def make_rule(self, rule_cond1: dict, rule_cond2: dict, rule_name: str) -> dict:
+        """
+        Purpose:
+            Create a rule
+        Args:
+            rule_cond1: Condtion for first rule
+            rule_cond2: Condtion for second rule
+            rule_name: The name of the rule
+        Returns:
+            rule_resp: rule object
+        """
 
         rule_obj = {}
 
@@ -541,16 +582,6 @@ class CodexKg:
 
         logging.info(f"Finding {concept} data")
 
-        # check null case
-
-        # if len(concept_attrs) == 0 and len(rel_actions) == 0:
-
-        #     #do a raw get all query
-        #     grakn_query = f"match $x isa {concept}; get;"
-
-        #     run_find_query
-        #     return self.raw_graql(grakn_query,"read")
-
         query_obj = find_action(
             self,
             concept,
@@ -571,6 +602,16 @@ class CodexKg:
         return self.query(query_obj)
 
     def compute(self, actions: list, concepts: list, concept_attrs: list):
+        """
+        Purpose:
+            Do a compute query
+        Args:
+            actions - compute actions
+            concepts - list of concepts to compute on
+            concept_attrs: concepts attributes to compute
+        Returns:
+            compute_obj: answer to query
+        """
         logging.info(f"Computing data")
 
         query_obj = compute_action(self, actions, concepts, concept_attrs)
@@ -587,6 +628,19 @@ class CodexKg:
         given_type: str = None,
         k_min: int = None,
     ):
+        """
+        Purpose:
+            Do a cluster query
+        Args:
+            cluster_action - Type of clustering
+            action - how to cluster
+            cluster_type: "the cluster action"
+            cluster_concepts: List of concepts to cluster
+            given_type: concept to filter on
+            k_min- how many K groups
+        Returns:
+            rule_resp: rule object
+        """
 
         logging.info("Clustering data")
 
@@ -602,32 +656,3 @@ class CodexKg:
 
         # do query.
         return self.query(query_obj)
-
-    # TODO
-    # streamlit example
-    # query
-    # - find - done
-    # - compute - done
-    # - cluster - done
-
-    # create rules - done :)
-    # re org streamlit app - done
-    # show graph? codex_viz - done
-
-    # "real data" - done
-    # topics blobls and tweets?
-    #  topics
-    #  tweets - text, char length, has_link, is_retweet,
-    #  user - name, num_followers, following, verified
-
-    # api? - This is the api, done
-
-    # not queries? - done
-    # bool queries - check if true/false? - doneish?
-    # date queries - check if string matches date format, if not then its a string - done and done
-
-    # biz case - shower
-
-    # generate all quries, use natrual language to make requests - on pause too complicated..
-
-    # import from grakn

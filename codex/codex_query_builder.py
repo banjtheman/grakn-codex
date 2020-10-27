@@ -33,28 +33,37 @@ rules = (
 
 
 def plural(noun):
+    """
+    Purpose:
+        Get plural form of a string
+    Args:
+        noun - string to get plural for
+    Returns:
+        noun: plural form of noun
+    """
     for findpattern, rule in rules:
         if findpattern(noun):
             return rule(noun)
 
 
 def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
-
+    """
+    Purpose:
+        Get the rel name from entity
+    Args:
+        codexkg - Codex KG object
+        rel1: first relationship
+        rel2: second relationship
+    Returns:
+        rel_name: Relation name
+    """
     rels = list(codexkg.rel_map.keys())
     rel_name = ""
-
-    # logging.info(" do we have rels?")
-    # logging.info(rels)
-    # logging.info(codexkg.rel_map)
 
     for rel in rels:
 
         check1 = codexkg.rel_map[rel]["rel1"]["entity"]
         check2 = codexkg.rel_map[rel]["rel2"]["entity"]
-
-        # print("the rel name checks")
-        # print(check1)
-        # print(check2)
 
         if rel1 == check1 or rel1 == check2:
             if rel2 == check1 or rel2 == check2:
@@ -64,7 +73,16 @@ def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
 
 
 def cond_json_maker(concept_cond: str, concept_value) -> dict:
+    """
+    Purpose:
+        Get the condtions json object
+    Args:
+        concept_cond - concept condition
+        concept_value - concept value
 
+    Returns:
+        cond_json: condition json object
+    """
     cond_json = {}
 
     # cond_value = f"REPLACE_{concept}_{attr_name}"
@@ -80,7 +98,19 @@ def cond_json_maker(concept_cond: str, concept_value) -> dict:
 def cond_setter(
     attr_type: str, attr_name: str, concept: str, concept_cond, concept_value
 ) -> list:
+    """
+    Purpose:
+        Get the condtions object
+    Args:
+        attr_type: attribute type
+        attr_name: attribute name
+        concept: concept
+        concept_cond - concept condition
+        concept_value - concept value
 
+    Returns:
+        cond_array: condition query object
+    """
     cond_json = {}
 
     if attr_type == "string":
@@ -138,7 +168,20 @@ def cond_setter(
 def cond_array_maker(
     codexkg, concept, is_ent, rel_attrs, rel_conds, rel_values, attr_string
 ):
+    """
+    Purpose:
+        Get the condtions array
+    Args:
+        concept: Concept to find
+        is_ent - Is entity or not
+        rel_attrs - relation attributes
+        rel_conds - relation conditions
+        rel_values - values of the conditions
+        attr_string - attribute string
 
+    Returns:
+        cond_array: condition query object
+    """
     cond_array = []
     selected_attr = []
     attr_type = []
@@ -202,8 +245,26 @@ def attr_setter(
     with_rel_attrs,
     with_rel_conds,
     with_rel_values,
-):
-
+) -> list:
+    """
+    Purpose:
+        Get the attributes query object
+    Args:
+        concept: Concept to find
+        concept_attrs: Concept attributes
+        concept_conds: condition for attribute
+        concept_values: value for condition
+        rel_actions: Find releation attrubite
+        concept_rels= Relation to search for
+        concept_rel_attrs=attributes for relation attribute
+        concept_rel_conds=conditions for relation attribute
+        concept_rel_values=values for relation attribute,
+        with_rel_attrs=attributes of the relationship ,
+        with_rel_conds=conditions of the relationship ,
+        with_rel_values=values of the relationship ,
+    Returns:
+        attr_obj_list: attributes query object
+    """
     # Get Values from entites
 
     rel_action_counter = 0
@@ -341,7 +402,7 @@ def attr_setter(
 
                 attr_json["attr_concept"] = selected_ent2
                 attr_string += " " + selected_ent2
-                attrs2 = codexkg.entity_map[selected_ent2]["cols"]
+                # attrs2 = codexkg.entity_map[selected_ent2]["cols"]
                 attr_string + " that have a " + selected_ent2 + " relationship that "
                 cond_json = {}
 
@@ -375,7 +436,15 @@ def attr_setter(
 
 
 def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
-
+    """
+    Purpose:
+        Create a query string
+    Args:
+        concept: the concept
+        attr_obj_list: concept attributes
+    Returns:
+        query_string: The query string
+    """
     query_string = f"Find {plural(concept)}"
 
     attr_len = len(attr_obj_list)
@@ -406,7 +475,15 @@ def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
 
 
 def make_rule_string(rule_obj):
-
+    """
+    Purpose:
+        Create Rule string
+    Args:
+        rule_obj: Rule object
+    Returns:
+        rule_string: The rule string
+        rule_string_ans: The rule string as an answer
+    """
     rule_string = ""
     rule_string_ans = ""
 
@@ -490,6 +567,25 @@ def make_rule_cond(
     with_rel_conds,
     with_rel_values,
 ):
+    """
+    Purpose:
+        Create Rule Condition
+    Args:
+        concept: Concept to find
+        concept_attrs: Concept attributes
+        concept_conds: condition for attribute
+        concept_values: value for condition
+        rel_actions: Find releation attrubite
+        concept_rels: Relation to search for
+        concept_rel_attrs: attributes for relation attribute
+        concept_rel_conds: conditions for relation attribute
+        concept_rel_values: values for relation attribute,
+        with_rel_attrs: attributes of the relationship ,
+        with_rel_conds: conditions of the relationship ,
+        with_rel_values: values of the relationship ,
+    Returns:
+        answers: find rule query object
+    """
     ents = list(codexkg.entity_map.keys())
 
     if concept in ents:
@@ -541,7 +637,25 @@ def find_action(
     with_rel_conds,
     with_rel_values,
 ):
-
+    """
+    Purpose:
+        Find data in Knowledge Graph
+    Args:
+        concept: Concept to find
+        concept_attrs: Concept attributes
+        concept_conds: condition for attribute
+        concept_values: value for condition
+        rel_actions: Find releation attrubite
+        concept_rels: Relation to search for
+        concept_rel_attrs: attributes for relation attribute
+        concept_rel_conds: conditions for relation attribute
+        concept_rel_values: values for relation attribute,
+        with_rel_attrs: attributes of the relationship ,
+        with_rel_conds: conditions of the relationship ,
+        with_rel_values: values of the relationship ,
+    Returns:
+        answers: find query object
+    """
     ents = list(codexkg.entity_map.keys())
     # rels = list(codexkg.rel_map.keys())
 
@@ -579,10 +693,6 @@ def find_action(
     concept_json["query_string"] = query_string_find_maker(concept, attr_obj_list)
     codex_query_list.append(concept_json)
 
-    # st.write(attr_obj_list)
-
-    # TODO make a codex_query object
-    # TODO add mulipte queries
     try:
         query_text = ""
         for concept_obj in codex_query_list:
@@ -594,24 +704,7 @@ def find_action(
     # make a codex_query object here
     curr_query = CodexQueryFind(concepts=codex_query_list, query_string=query_text)
 
-    # st.write(str(curr_query))
-
     return curr_query
-
-    # st.write(codex_query_list)
-
-    # st.header(query_text)
-    # if st.button("Query"):
-
-    #     with st.spinner("Doing query..."):
-    #         answers = codexkg.query(curr_query)
-
-    #     for key in answers.keys():
-    #         st.subheader(key)
-    #         if answers[key] is None:
-    #             st.error("No Matches for Query")
-    #         else:
-    #             st.write(answers[key])
 
 
 def compute_action(
@@ -620,7 +713,16 @@ def compute_action(
     concepts: list,
     concept_attrs: list,
 ):
-
+    """
+    Purpose:
+        Do a compute query
+    Args:
+        actions - compute actions
+        concepts - list of concepts to compute on
+        concept_attrs: concepts attributes to compute
+    Returns:
+        compute_obj: compute query object
+    """
     compute_obj = {}
 
     actions_list = [
@@ -794,7 +896,6 @@ def compute_centrality(
             )
 
     if action == "k-core":
-        # concepts = st.multiselect("Select Concepts", ents_rels,key=f"{action} concept select")
 
         cluster_obj["query_type"] = "centrality"
         cluster_obj["choice"] = "k-core"
@@ -811,18 +912,9 @@ def compute_centrality(
 
         cluster_obj["query_string"] = query_string
 
-    # st.write(cluster_obj)
     curr_query = CodexQueryCluster(query=cluster_obj)
 
     return curr_query
-
-    # if st.button("Query"):
-    #     # st.success("Doing query")
-    #     with st.spinner("Doing query..."):
-    #         answers = codexkg.query(curr_query)
-    #     # st.write(answers)
-
-    #     viz.cluster_graph(answers, ents, rels, codexkg)
 
 
 def compute_cluster(
@@ -882,15 +974,6 @@ def compute_cluster(
     curr_query = CodexQueryCluster(query=cluster_obj)
 
     return curr_query
-
-    # if st.button("Query"):
-    #     # st.success("Doing query")
-
-    #     with st.spinner("Doing query..."):
-    #         answers = codexkg.query(curr_query)
-    #     # st.write(answers)
-
-    #     viz.cluster_graph(answers, ents, rels, codexkg)
 
 
 def codex_cluster_action(

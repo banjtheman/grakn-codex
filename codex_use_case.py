@@ -225,15 +225,28 @@ def date_query(codexkg):
     logging.info(ans)
 
 
+
+def get_ents(codexkg):
+
+    codexkg.get_concepts_grakn()
+
 def main():
 
     logging.info("This will highlight how we can use codex to create knowledge graphs")
     codexkg = CodexKg()
 
-    codexkg.create_db("game_dates")
-    # load_time_data(codexkg)
+    codexkg.create_db("tech_example",check_grakn=True)
 
-    date_query(codexkg)
+    logging.info(codexkg.entity_map)
+    logging.info(codexkg.rel_map)
+
+
+    quick_search(codexkg)
+
+    # load_time_data(codexkg)
+    # get_ents(codexkg)
+
+    # date_query(codexkg)
 
     # delete_keyspace(codexkg,"game_dates")
 
