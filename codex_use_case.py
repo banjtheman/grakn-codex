@@ -7,33 +7,9 @@ logging.basicConfig(
 )
 
 
-# good use case can be smart tvs...
-# they have lots of different content
-# we want to use nlq to find certain content
+def make_tech_rule(codexkg):
 
-
-# example entity_map
-
-
-# entity_map = {}
-# entity_map["Company"] = ["company","companies"]
-# entity_map["Product"] = ["product","products"]
-
-# attr_list = ["name","budget"]
-
-
-# codex_actions_map = {}
-# codex_actions_map["Find"] = ["find","get","show","list"]
-
-# codex_action_keys = list(codex_actions_map.keys())
-
-
-# cols = ["name","budget","produces"]
-
-
-def make_rules(codexkg):
-
-    # Find Company that has a name equal to google
+    # Find Company that has a name equal to Google
     cond1 = codexkg.rule_condition(
         concept="Company",
         concept_attrs=["name"],
@@ -41,7 +17,7 @@ def make_rules(codexkg):
         concept_values=["Google"],
     )
 
-    # Find Products that has a name that contains google
+    # Find Products that has a name that contains Google
     cond2 = codexkg.rule_condition(
         concept="Product",
         concept_attrs=["name"],
@@ -49,27 +25,23 @@ def make_rules(codexkg):
         concept_values=["Google"],
     )
 
-    rule_name = "_is_a_good_Google_Product"
+    rule_name = "Google_Product"
 
-    ans = codexkg.make_rule(cond1, cond2, rule_name)
-    logging.info(ans)
+    codexkg.make_rule(cond1, cond2, rule_name)
 
-
-def search_for_rule(codexkg):
-
-    ans = codexkg.search_rule("_is_a_good_Google_Product")
+    ans = codexkg.search_rule("Google_Product")
     logging.info(ans)
 
 
 def not_query(codexkg):
 
-    # Find Company that has a name equal to google
+    # Find Company that has a name not equal to Google and that produces products that are not a phone
     ans = codexkg.find(
         concept="Company",
         concept_attrs=["name"],
         concept_conds=["not equals"],
         concept_values=["Google"],
-        rel_actions=["producer"],
+        rel_actions=["produces"],
         concept_rels=["Product"],
         concept_rel_attrs=[["product_type"]],
         concept_rel_conds=[["not equals"]],
@@ -79,14 +51,37 @@ def not_query(codexkg):
     logging.info(ans)
 
 
-def quick_search(codexkg):
+def compute_searches(codexkg):
 
+    # Compute the Sum of Company budget and the Count of Products
+    ans = codexkg.compute(
+        actions=["Sum", "Count"],
+        concepts=["Company", "Product"],
+        concept_attrs=["budget", ""],
+    )
+
+    logging.info(ans)
+
+    # Compute the Mean of Company budget and the Standard Deviation
+    ans = codexkg.compute(
+        actions=["Mean", "Standard Deviation"],
+        concepts=["Company", "Company"],
+        concept_attrs=["budget", "budget"],
+    )
+
+    logging.info(ans)
+
+
+def cluster_searches(codexkg):
+
+    # Find centerality cluster by degree
     ans = codexkg.cluster(
         cluster_action="centerality", action="degree", cluster_type="All"
     )
 
     logging.info(ans)
 
+    # Find centerality cluster by degree using the Product, Company and Productize concepts
     ans = codexkg.cluster(
         cluster_action="centerality",
         action="degree",
@@ -96,6 +91,7 @@ def quick_search(codexkg):
 
     logging.info(ans)
 
+    # Find centerality cluster by degree using the Product, Company and Productize concepts with given type of Company
     ans = codexkg.cluster(
         cluster_action="centerality",
         action="degree",
@@ -106,10 +102,12 @@ def quick_search(codexkg):
 
     logging.info(ans)
 
+    # Find centerality cluster by k-core with a k-min of 2
     ans = codexkg.cluster(cluster_action="centerality", action="k-core", k_min=2)
 
     logging.info(ans)
 
+    # Find a cluster by k-core with a k-min of 2 using the Product, Company and Productize concepts
     ans = codexkg.cluster(
         cluster_action="cluster",
         action="k-core",
@@ -119,6 +117,7 @@ def quick_search(codexkg):
 
     logging.info(ans)
 
+    # Find a connected component cluster using the Product, Company and Productize concepts
     ans = codexkg.cluster(
         cluster_action="cluster",
         action="connected",
@@ -127,20 +126,15 @@ def quick_search(codexkg):
 
     logging.info(ans)
 
-    ans = codexkg.compute(
-        actions=["Sum", "Count"],
-        concepts=["Company", "Product"],
-        concept_attrs=["budget", ""],
-    )
 
-    logging.info(ans)
+def find_searches(codexkg):
 
     # Find all companies
     ans = codexkg.find("Company")
 
     logging.info(ans)
 
-    # Find Company that has a name equal to google
+    # Find Companies that has a name equal to Google
     ans = codexkg.find(
         concept="Company",
         concept_attrs=["name"],
@@ -150,9 +144,20 @@ def quick_search(codexkg):
 
     logging.info(ans)
 
+    # Find Companies that has a name that contains o and a budget greater than 100
     ans = codexkg.find(
         concept="Company",
-        rel_actions=["producer"],
+        concept_attrs=["name", "budget"],
+        concept_conds=["contains", "greater than"],
+        concept_values=["o", 100],
+    )
+
+    logging.info(ans)
+
+    # Find Companies that produce a product that have a name equal to Pixel and a product type that equals phone
+    ans = codexkg.find(
+        concept="Company",
+        rel_actions=["produces"],
         concept_rels=["Product"],
         concept_rel_attrs=[["name", "product_type"]],
         concept_rel_conds=[["equals", "equals"]],
@@ -161,12 +166,13 @@ def quick_search(codexkg):
 
     logging.info(ans)
 
+    # Find Companies that has a name equal to Google and a budget greater than 100,that produce products that have a name equal to Pixel and a product type that equals phone with a relation with a note that contains pixel.
     ans = codexkg.find(
         concept="Company",
         concept_attrs=["name", "budget"],
         concept_conds=["equals", "greater than"],
         concept_values=["Google", 100],
-        rel_actions=["producer"],
+        rel_actions=["produces"],
         concept_rels=["Product"],
         concept_rel_attrs=[["name", "product_type"]],
         concept_rel_conds=[["equals", "equals"]],
@@ -178,29 +184,43 @@ def quick_search(codexkg):
 
     logging.info(ans)
 
+
+def date_query_example(codexkg):
+
+    # Find games released after 2019-08-18
     ans = codexkg.find(
-        concept="Company",
-        concept_attrs=["name", "budget"],
-        concept_conds=["equals", "greater than"],
-        concept_values=["Google", 100],
+        concept="Game",
+        concept_attrs=["date"],
+        concept_conds=["after"],
+        concept_values=["2019-08-18"],
+    )
+
+    logging.info(ans)
+
+    # Find games released before 2019-08-18
+    ans = codexkg.find(
+        concept="Game",
+        concept_attrs=["date"],
+        concept_conds=["before"],
+        concept_values=["2019-08-18"],
+    )
+
+    logging.info(ans)
+
+    # Find games released between 2017-08-18 and 2019-08-04
+    ans = codexkg.find(
+        concept="Game",
+        concept_attrs=["date"],
+        concept_conds=["between"],
+        concept_values=["2017-08-18 2019-08-04"],
     )
 
     logging.info(ans)
 
 
-def date_query(codexkg):
+def date_rule(codexkg):
 
-    # Find Company that has a name equal to google
-    # ans = codexkg.find(
-    #     concept="Game",
-    #     concept_attrs=["date"],
-    #     concept_conds=["congruent"],
-    #     concept_values=["2019-10-03 2020-05-02"],
-    # )
-
-    # logging.info(ans)
-
-    # Find Company that has a name equal to google
+    # If Game A has the same release date
     cond1 = codexkg.rule_condition(
         concept="Game",
         concept_attrs=["date"],
@@ -208,7 +228,7 @@ def date_query(codexkg):
         concept_values=[""],
     )
 
-    # Find Products that has a name that contains google
+    # If Game B has the same release date
     cond2 = codexkg.rule_condition(
         concept="Game",
         concept_attrs=["date"],
@@ -216,61 +236,14 @@ def date_query(codexkg):
         concept_values=[""],
     )
 
+    # Rule Name
     rule_name = "same_day_release"
 
-    # ans = codexkg.make_rule(cond1, cond2, rule_name)
-    # logging.info(ans)
+    # Create new rule in Grakn
+    codexkg.make_rule(cond1, cond2, rule_name)
 
+    # Get results
     ans = codexkg.search_rule("same_day_release")
-    logging.info(ans)
-
-
-
-def get_ents(codexkg):
-
-    codexkg.get_concepts_grakn()
-
-def main():
-
-    logging.info("This will highlight how we can use codex to create knowledge graphs")
-    codexkg = CodexKg()
-
-    codexkg.create_db("tech_example",check_grakn=True)
-
-    logging.info(codexkg.entity_map)
-    logging.info(codexkg.rel_map)
-
-
-    quick_search(codexkg)
-
-    # load_time_data(codexkg)
-    # get_ents(codexkg)
-
-    # date_query(codexkg)
-
-    # delete_keyspace(codexkg,"game_dates")
-
-    # codexkg.create_db("tech_example")
-
-    # codexkg.create_db("game_dates")
-
-    # not_query(codexkg)
-
-    # make_rules(codexkg)
-    # search_for_rule(codexkg)
-    # loading_data(codexkg)
-    # quick_search(codexkg)
-
-
-def search_data(codexkg):
-
-    # codexkg.gen_queries() - > create all queries
-    # codexkg.show_queries() - > list of all queries
-    # codexkg.nlquery("Find Companies that have a name that contains Google.")
-
-    df = pd.read_csv("sample_data/tech_companies.csv")
-    ans = df.loc[df["name"] == "Google"]
-
     logging.info(ans)
 
 
@@ -299,6 +272,57 @@ def loading_data(codexkg):
 
     # create rels
     codexkg.create_relationship(company_products, "Productize", "Product", "Company")
+
+
+def main():
+
+    logging.info("This will highlight how we can use Codex to create knowledge graphs")
+
+    # Init Codex 
+    codexkg = CodexKg()
+
+    # Connect to keyspace
+    codexkg.create_db("tech_example")
+
+    # Load data
+    loading_data(codexkg)
+
+    # Search Example
+    find_searches(codexkg)
+
+    # Negation example
+    not_query(codexkg)
+
+    # Cluster Example
+    cluster_searches(codexkg)
+
+    # Compute Example
+    compute_searches(codexkg)
+
+    # Make rules example
+    make_tech_rule(codexkg)
+
+    # Delete keyspace
+    delete_keyspace(codexkg, "tech_example")
+
+    # Simple example showing off date queries
+
+    # Connect to keyspace
+    codexkg.create_db("game_dates")
+
+    # Load data
+    load_time_data(codexkg)
+
+    # Do example date queries
+    date_query_example(codexkg)
+
+    # Show a congruent rule
+    date_rule(codexkg)
+
+    # Delete key space
+    delete_keyspace(codexkg, "game_dates")
+
+    logging.info("Done and Done")
 
 
 if __name__ == "__main__":

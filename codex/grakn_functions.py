@@ -1296,7 +1296,6 @@ def run_find_query(session, queries: list, concepts: list) -> dict:
     Returns:
         ent_map: Answers to the queries by entity
     """
-    logging.info("Here are the concepts")
     ent_map = {}
 
     for concept in concepts:
@@ -1312,12 +1311,9 @@ def run_find_query(session, queries: list, concepts: list) -> dict:
 
                     answer_concepts = list(answer.map().keys())
 
-                    logging.info(answer_concepts)
                     for key in answer_concepts:
 
                         if key in concepts:
-                            logging.info("here is key")
-                            logging.info(key)
 
                             ent_obj = {}
                             curr_ent = answer.map().get(key)
