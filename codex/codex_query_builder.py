@@ -1000,7 +1000,7 @@ def codex_cluster_action(
         codex_query - Cluster object
     """
 
-    if cluster_action == "centerality":
+    if cluster_action == "centrality":
         return compute_centrality(
             codexkg, action, cluster_type, cluster_concepts, given_type, k_min
         )
@@ -1010,5 +1010,5 @@ def codex_cluster_action(
         )
     else:
         raise ValueError(
-            f"cluster_action: {cluster_action} is not defined, muse be either centerality or cluster"
+            f"cluster_action: {cluster_action} is not defined, muse be either centrality or cluster"
         )

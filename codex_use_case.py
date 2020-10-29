@@ -74,16 +74,16 @@ def compute_searches(codexkg):
 
 def cluster_searches(codexkg):
 
-    # Find centerality cluster by degree
+    # Find centrality cluster by degree
     ans = codexkg.cluster(
-        cluster_action="centerality", action="degree", cluster_type="All"
+        cluster_action="centrality", action="degree", cluster_type="All"
     )
 
     logging.info(ans)
 
-    # Find centerality cluster by degree using the Product, Company and Productize concepts
+    # Find centrality cluster by degree using the Product, Company and Productize concepts
     ans = codexkg.cluster(
-        cluster_action="centerality",
+        cluster_action="centrality",
         action="degree",
         cluster_type="Subgraph",
         cluster_concepts=["Product", "Company", "Productize"],
@@ -91,9 +91,9 @@ def cluster_searches(codexkg):
 
     logging.info(ans)
 
-    # Find centerality cluster by degree using the Product, Company and Productize concepts with given type of Company
+    # Find centrality cluster by degree using the Product, Company and Productize concepts with given type of Company
     ans = codexkg.cluster(
-        cluster_action="centerality",
+        cluster_action="centrality",
         action="degree",
         cluster_type="Subgraph",
         cluster_concepts=["Product", "Company", "Productize"],
@@ -102,8 +102,8 @@ def cluster_searches(codexkg):
 
     logging.info(ans)
 
-    # Find centerality cluster by k-core with a k-min of 2
-    ans = codexkg.cluster(cluster_action="centerality", action="k-core", k_min=2)
+    # Find centrality cluster by k-core with a k-min of 2
+    ans = codexkg.cluster(cluster_action="centrality ", action="k-core", k_min=2)
 
     logging.info(ans)
 
