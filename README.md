@@ -7,7 +7,8 @@ Codex is a Python package that provides a simple, yet powerful API designed to m
 
 ## Why develop Codex
 
-Building, querying, and interrupting results from the Grakn knowledge graph requires expertise in learning the specific query language graql and learning how to use the verbose API. Codex abstracts away the mundane and tedious aspects of knowledge graphs, so you can focus on organizing your data and get answers. 
+Building, querying, and interrupting results from the Grakn knowledge graph requires expertise in learning the specific query language graql and learning how to use the verbose API. 
+Codex abstracts away the mundane and tedious aspects of using knowledge graphs, so you can focus on organizing your data and getting answers. 
 
 ## Installing Codex
 
