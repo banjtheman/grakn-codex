@@ -23,23 +23,11 @@ The following are dependencies need to properly run Codex
 
 ### Installing Codex
 
-**TODO: Push to pip**   
-Codex is compatible with Python 3.6 or later. The simplest way to install Codex and its dependencies is from PyPI with pip, Python's preferred package installer.
-
+Codex is compatible with Python 3.6 or later. The simplest way to install Codex and its dependencies is by...
 
 ```bash
-pip install grakn-codex
-```
-
-Note that Codex is an active project and routinely publishes new releases. In order to upgrade Codex to the latest version, use pip as follows
-
-```bash
-pip install -U grakn-codex
-```
-
-Codex can also be installed from source.
-
-```bash
+git clone https://github.com/banjtheman/grakn-codex.git 
+cd grakn-codex
 pip install --editable .
 ```
 
@@ -97,7 +85,7 @@ For complete documentation on Codex, tutorials and teaching resources, frequentl
 
 Codex is an open source project that is supported by a community who will gratefully and humbly accept any contributions you might make to the project. Large or small, any contribution makes a big difference; and if you've never contributed to an open source project before, we hope you will start with Codex!
 
-If you are interested in contributing, check out our contributor's guide. Here are some of the many ways to contribute:
+If you are interested in contributing, here are some of the many ways to contribute:
 
 * Submit a bug report or feature request on GitHub Issues.
 * Assist us with user testing.
@@ -110,6 +98,5 @@ If you are interested in contributing, check out our contributor's guide. Here a
 
 As you can see, there are lots of ways to get involved and we would be very happy for you to join us! The only thing we ask is that you abide by the principles of openness, respect, and consideration of others as described in the Python Software Foundation Code of Conduct.
 
-TODO: add this
-For more information, checkout the [CONTRIBUTING.md](CONTRIBUTING.md) file in the root of the repository.
+
 
