@@ -72,7 +72,6 @@ if __name__ == "__main__":
     main()
 ```
 
-
 3. Create a Codex Object
 
 ```python
