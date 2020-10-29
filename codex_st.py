@@ -50,7 +50,7 @@ def codex_entities(codexkg):
     st.header("Entites")
 
     st.markdown(
-        "An entity is a thing with a distinct existence in the domain. For example, `organisation`, `location` and `person`. The existence of each of these entities is independent of any other concept in the domain."
+        "An entity is a thing with a distinct existence in the domain. For example, `organization`, `location` and `person`. The existence of each of these entities is independent of any other concept in the domain."
     )
 
     st.subheader("Current Entities")

@@ -255,7 +255,7 @@ def load_time_data(codexkg):
 
     games = pd.read_csv("sample_data/example_dates.csv")
 
-    # create entites
+    # create entities
     codexkg.create_entity(games, "Game", "game")
 
 
@@ -266,7 +266,7 @@ def loading_data(codexkg):
     tech_products = pd.read_csv("sample_data/tech_products.csv")
     company_products = pd.read_csv("sample_data/tech_products_rel.csv")
 
-    # create entites
+    # create entities
     codexkg.create_entity(tech_companies, "Company", "name")
     codexkg.create_entity(tech_products, "Product", "name")
 
