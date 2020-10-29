@@ -3,7 +3,7 @@
 
 ## What is Codex
 
-Codex is a Python package that provides a simple yet powerful API designed to make working with the [Grakn](https://grakn.ai/) knowledge graph intuitive. 
+Codex is a Python package that provides a simple, yet powerful API designed to make working with the [Grakn](https://grakn.ai/) knowledge graph intuitive. 
 
 ## Why develop Codex
 
