@@ -151,7 +151,8 @@ def create_relationship_query(entity_map: dict, rel_name: str, rel_map: dict) ->
 
     return graql_insert_query
 
-#Example Rule
+
+# Example Rule
 # define same_loc_not_nan sub relation, relates same_loc_not_nan_relationship_1, relates same_loc_not_nan_relationship_2;Tweet sub entity, plays same_loc_not_nan_relationship_1, plays same_loc_not_nan_relationship_2;Tweet sub entity, plays same_loc_not_nan_relationship_1, plays same_loc_not_nan_relationship_2;same_loc_not_nan-rule sub rule,when {$Tweet_A isa Tweet, has location $Tweet_location_A;{$Tweet_location_A != "nan";};{$Tweet_location_A != "";};$Tweet_B isa Tweet, has location $Tweet_location_B;{$Tweet_location_B != "nan";};{$Tweet_location_B != "";};$Tweet_A != $Tweet_B;},then {(same_loc_not_nan_relationship_1: $Tweet_A, same_loc_not_nan_relationship_2: $Tweet_B) isa same_loc_not_nan;};
 
 
@@ -1412,7 +1413,6 @@ def query_grakn(session, query_object) -> dict:
         return answers
 
 
-
 def make_dt_string(val: str) -> str:
     """
     Purpose:
@@ -1874,7 +1874,6 @@ def get_all_entities(session):
             for label in labels:
                 ent_map[sub_label]["cols"][label["label"]] = {}
                 ent_map[sub_label]["cols"][label["label"]]["type"] = label["type"]
-
 
             roles = curr_sub.playing()
             for role in roles:

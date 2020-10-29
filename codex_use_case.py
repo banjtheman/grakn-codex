@@ -103,7 +103,7 @@ def cluster_searches(codexkg):
     logging.info(ans)
 
     # Find centrality cluster by k-core with a k-min of 2
-    ans = codexkg.cluster(cluster_action="centrality ", action="k-core", k_min=2)
+    ans = codexkg.cluster(cluster_action="centrality", action="k-core", k_min=2)
 
     logging.info(ans)
 
@@ -278,7 +278,7 @@ def main():
 
     logging.info("This will highlight how we can use Codex to create knowledge graphs")
 
-    # Init Codex 
+    # Init Codex
     codexkg = CodexKg()
 
     # Connect to keyspace
