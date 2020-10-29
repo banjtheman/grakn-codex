@@ -65,7 +65,7 @@ codexkg = CodexKg()
 codexkg.create_db("tech_example")
 
 #Load data into Grakn
-codexkg.create_entity(df, "Company", key="name")
+codexkg.create_entity(df, "Company", entity_key="name")
 
 # Find Company that has a name equal to Google
 ans = codexkg.find(
