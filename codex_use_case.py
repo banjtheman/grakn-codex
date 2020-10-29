@@ -1,6 +1,7 @@
 import logging
 import pandas as pd
 from codex import CodexKg
+import pprint
 
 logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
@@ -30,7 +31,7 @@ def make_tech_rule(codexkg):
     codexkg.make_rule(cond1, cond2, rule_name)
 
     ans = codexkg.search_rule("Google_Product")
-    logging.info(ans)
+    pprint.pprint(ans)
 
 
 def not_query(codexkg):
@@ -48,7 +49,7 @@ def not_query(codexkg):
         concept_rel_values=[["phone"]],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
 
 def compute_searches(codexkg):
@@ -60,7 +61,7 @@ def compute_searches(codexkg):
         concept_attrs=["budget", ""],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Compute the Mean of Company budget and the Standard Deviation
     ans = codexkg.compute(
@@ -69,7 +70,7 @@ def compute_searches(codexkg):
         concept_attrs=["budget", "budget"],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
 
 def cluster_searches(codexkg):
@@ -79,7 +80,7 @@ def cluster_searches(codexkg):
         cluster_action="centrality", action="degree", cluster_type="All"
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find centrality cluster by degree using the Product, Company and Productize concepts
     ans = codexkg.cluster(
@@ -89,7 +90,7 @@ def cluster_searches(codexkg):
         cluster_concepts=["Product", "Company", "Productize"],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find centrality cluster by degree using the Product, Company and Productize concepts with given type of Company
     ans = codexkg.cluster(
@@ -100,12 +101,12 @@ def cluster_searches(codexkg):
         given_type="Company",
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find centrality cluster by k-core with a k-min of 2
     ans = codexkg.cluster(cluster_action="centrality", action="k-core", k_min=2)
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find a cluster by k-core with a k-min of 2 using the Product, Company and Productize concepts
     ans = codexkg.cluster(
@@ -115,7 +116,7 @@ def cluster_searches(codexkg):
         k_min=2,
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find a connected component cluster using the Product, Company and Productize concepts
     ans = codexkg.cluster(
@@ -124,7 +125,7 @@ def cluster_searches(codexkg):
         cluster_concepts=["Product", "Company", "Productize"],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
 
 def find_searches(codexkg):
@@ -132,7 +133,7 @@ def find_searches(codexkg):
     # Find all companies
     ans = codexkg.find("Company")
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find Companies that has a name equal to Google
     ans = codexkg.find(
@@ -142,7 +143,7 @@ def find_searches(codexkg):
         concept_values=["Google"],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find Companies that has a name that contains o and a budget greater than 100
     ans = codexkg.find(
@@ -152,7 +153,7 @@ def find_searches(codexkg):
         concept_values=["o", 100],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find Companies that produce a product that have a name equal to Pixel and a product type that equals phone
     ans = codexkg.find(
@@ -164,7 +165,7 @@ def find_searches(codexkg):
         concept_rel_values=[["Pixel", "phone"]],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find Companies that has a name equal to Google and a budget greater than 100,that produce products that have a name equal to Pixel and a product type that equals phone with a relation with a note that contains pixel.
     ans = codexkg.find(
@@ -182,7 +183,7 @@ def find_searches(codexkg):
         with_rel_values=[["pixel"]],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
 
 def date_query_example(codexkg):
@@ -195,7 +196,7 @@ def date_query_example(codexkg):
         concept_values=["2019-08-18"],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find games released before 2019-08-18
     ans = codexkg.find(
@@ -205,7 +206,7 @@ def date_query_example(codexkg):
         concept_values=["2019-08-18"],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
     # Find games released between 2017-08-18 and 2019-08-04
     ans = codexkg.find(
@@ -215,7 +216,7 @@ def date_query_example(codexkg):
         concept_values=["2017-08-18 2019-08-04"],
     )
 
-    logging.info(ans)
+    pprint.pprint(ans)
 
 
 def date_rule(codexkg):
@@ -244,7 +245,7 @@ def date_rule(codexkg):
 
     # Get results
     ans = codexkg.search_rule("same_day_release")
-    logging.info(ans)
+    pprint.pprint(ans)
 
 
 def delete_keyspace(codexkg, val):
@@ -276,7 +277,7 @@ def loading_data(codexkg):
 
 def main():
 
-    logging.info("This will highlight how we can use Codex to create knowledge graphs")
+    pprint.pprint("This will highlight how we can use Codex to create knowledge graphs")
 
     # Init Codex
     codexkg = CodexKg()
@@ -322,7 +323,7 @@ def main():
     # Delete key space
     delete_keyspace(codexkg, "game_dates")
 
-    logging.info("Done and Done")
+    pprint.pprint("Done and Done")
 
 
 if __name__ == "__main__":
