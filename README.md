@@ -50,6 +50,14 @@ In addition to the python package, Codex leverages Grakn and the Redis docker im
 
 Here's how you can quickly use Codex
 
+**Setup Database**
+```bash
+mkdir -p data
+mkdir -p redis_data
+docker-compose up -d
+```
+
+**Load and query**
 ```python
 import logging
 import pandas as pd
@@ -57,7 +65,7 @@ from codex import CodexKg
 
 
 #Load csv data
-df = pd.read_csv("tech_companies.csv")
+df = pd.read_csv("sample_data/tech_companies.csv")
 
 #Make new codex object
 codexkg = CodexKg()
@@ -83,7 +91,7 @@ logging.info(ans)
 #				0  Google  999.99}
 ```
 
-For complete documentation on Codex, tutorials and teaching resources, frequently asked questions, and more, please visit our documentation at INSERT_READ_DOCS_URL.
+For complete documentation on Codex, tutorials and teaching resources, frequently asked questions, and more, please visit our [Wiki](https://github.com/banjtheman/grakn-codex/wiki).
 
 ## Contributing to Codex
 
