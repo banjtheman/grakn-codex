@@ -22,24 +22,24 @@ The following are dependencies need to properly run Codex
 
 ### Installing Codex
 
-**TODO: Push to pip**
+**TODO: Push to pip**   
 Codex is compatible with Python 3.6 or later. The simplest way to install Codex and its dependencies is from PyPI with pip, Python's preferred package installer.
 
 
 ```bash
-localhost$ pip install grakn-codex
+pip install grakn-codex
 ```
 
 Note that Codex is an active project and routinely publishes new releases. In order to upgrade Codex to the latest version, use pip as follows
 
 ```bash
-localhost$ pip install -U grakn-codex
+pip install -U grakn-codex
 ```
 
 Codex can also be installed from source.
 
 ```bash
-localhost$ pip install --editable .
+pip install --editable .
 ```
 
 In addition to the python package, Codex leverages Grakn and the Redis docker images to store data.
