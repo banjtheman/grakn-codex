@@ -2,34 +2,21 @@ import json
 import re
 import uuid
 
-# import inflect
 import pandas as pd
 import streamlit as st
 
 import codex_viz as viz
 from codex import CodexKg
+
 from codex import CodexQueryFind, CodexQueryCompute, CodexQueryCluster, CodexQueryRule
 
-# p = inflect.engine()
-
-rules = (
-    (lambda word: re.search("[sxz]$", word), lambda word: re.sub("$", "es", word)),
-    (
-        lambda word: re.search("[^aeioudgkprt]h$", word),
-        lambda word: re.sub("$", "es", word),
-    ),
-    (
-        lambda word: re.search("[^aeiou]y$", word),
-        lambda word: re.sub("y$", "ies", word),
-    ),
-    (lambda word: re.search("$", word), lambda word: re.sub("$", "s", word)),
+from codex.codex_query_builder import (
+    find_action,
+    compute_action,
+    codex_cluster_action,
+    make_rule_cond,
+    make_rule_string,
 )
-
-
-def plural(noun):
-    for findpattern, rule in rules:
-        if findpattern(noun):
-            return rule(noun)
 
 
 @st.cache(allow_output_mutation=True)
@@ -185,227 +172,91 @@ def main_menu(codexkg, keyspace):
         codexkg.delete_db(keyspace)
 
 
-def cond_setter(
-    attr_type: str, attr_name: str, concept: str, seed: str, rule_num: int
-) -> str:
+def ontology_maker_app(codexkg):
 
-    cond_json = {}
+    st.header("Ontology Maker")
+    st.subheader("Define your schema")
 
-    st.subheader(f"{concept}-{attr_name}")
-    # selected_cond = ""
-    # cond_value = ""
-    # cond_string = ""
+    st.markdown("The Ontology Maker allows you to define how your data is structured")
+
+    options = ["Entites", "Relationships"]
+    selected_option = st.selectbox("Select concept", options)
+
+    if selected_option == "Entites":
+        # show entities
+        codex_entities(codexkg)
+
+    elif selected_option == "Relationships":
+        # show rels
+        codex_rels(codexkg)
+
+
+def graph_codex_ont(codexkg):
+
+    ents = codexkg.entity_map
+    rels = codexkg.rel_map
+    keyspace = codexkg.keyspace
+
+    viz.ent_rel_graph(ents, rels, keyspace)
+
+
+def select_cond(attr, concept, concept_map, key):
+
+    attr_type = concept_map["cols"][attr]["type"]
+
+    st.subheader(f"Select Conditions for {concept} {attr}")
 
     if attr_type == "string":
-        conds = ["equals", "contains", "congruent"]
+
+        conds = ["equals", "contains", "not equals", "not contains", "congruent"]
+
         selected_cond = st.selectbox(
-            "Select Condition",
-            conds,
-            key=f"{concept}-{attr_name} {seed} {rule_num} cond checker",
+            "Select Condition", conds, key=f"select cond for {attr} {key}"
         )
-
-        if selected_cond is not "congruent":
-            cond_value = st.text_input(
-                "Condition Value",
-                key=f"{concept}-{attr_name} {seed} {rule_num}  cond value",
-            )
-
-        else:
-            cond_value = str(
-                st.checkbox(
-                    "Block null values?",
-                    key=f"{concept}-{attr_name} {seed} {rule_num}block_null value",
-                )
-            )
-
-        cond_string = " that " + selected_cond + " " + cond_value
+        selected_value = st.text_input("Enter Value", key=f"select val for {attr}{key}")
 
     if attr_type == "long" or attr_type == "double":
-        conds = ["equals", "less Than", "greater Than"]
+
+        conds = ["equals", "less than", "greater than", "not equals", "congruent"]
+
         selected_cond = st.selectbox(
-            "Select Condition",
-            conds,
-            key=f"{concept}-{attr_name} {seed}  {rule_num} cond checker",
+            "Select Condition", conds, key=f"select cond for {attr}{key}"
         )
-        cond_value = st.number_input(
-            "Condition Value",
-            key=f"{concept}-{attr_name} {seed}  {rule_num} cond value",
+        selected_value = st.number_input(
+            "Enter Value", key=f"select val for {attr}{key}"
         )
-        cond_string = f" that {selected_cond} {cond_value}"
 
     if attr_type == "bool":
+
         conds = ["True", "False"]
-        selected_cond = "Equals"
-        cond_value = st.selectbox(
-            "Select Condition",
-            conds,
-            key=f"{concept}-{attr_name} {seed} {rule_num} cond checker",
+
+        selected_cond = "equals"
+        selected_value = st.selectbox(
+            "Select Value", conds, key=f"select cond for {attr}{key}"
         )
-        cond_string = f" that {selected_cond} {cond_value}"
 
-    cond_json["selected_cond"] = selected_cond
-    cond_json["cond_value"] = cond_value
-    cond_json["cond_string"] = cond_string
+    if attr_type == "date":
 
-    return cond_json
+        conds = [
+            "on",
+            "after",
+            "before",
+            "between",
+            "not on",
+            "not between",
+            "congruent",
+        ]
 
+        selected_cond = st.selectbox(
+            "Select Condition", conds, key=f"select cond for {attr}{key}"
+        )
 
-def attr_setter(codexkg: CodexKg, concept: str, is_ent: bool, rule_num):
+        if "between" in selected_cond:
+            st.warning("Add a space between the two dates i.e 10/01/2020 10/30/2020")
 
-    # Get Values from entites
-    plays_map = {}
-    if is_ent:
-        attrs = codexkg.entity_map[concept]["cols"]
-        attr_list = list(attrs.keys())
+        selected_value = st.text_input("Enter Value", key=f"select val for {attr}{key}")
 
-        rel_names = codexkg.entity_map[concept]["rels"].keys()
-
-        rel_attrs = []
-        for rel in rel_names:
-            plays = codexkg.entity_map[concept]["rels"][rel]["plays"]
-            with_ent = codexkg.entity_map[concept]["rels"][rel]["with_ent"]
-            rel_attrs.append(plays)
-
-            if plays in plays_map:
-                plays_map[plays].append(with_ent)
-            else:
-                plays_map[plays] = [with_ent]
-
-        attr_list_comp = attr_list + rel_attrs
-
-    # Get values for relationships
-    else:
-        attrs = codexkg.rel_map[concept]["cols"]
-        attr_list = list(attrs.keys())
-        attr_list.remove("codex_details")
-        attr_list_comp = attr_list
-
-    # this is the attribute for the entity i.e name
-    selected_attrs = st.multiselect(f"Select Attributes {rule_num}", attr_list_comp)
-
-    attr_obj_list = []
-
-    for selected_attr in selected_attrs:
-
-        attr_json = {}
-
-        if selected_attr in attr_list:
-            attr_string = " that have a " + selected_attr
-
-            if is_ent:
-                attr_type = codexkg.entity_map[concept]["cols"][selected_attr]["type"]
-            else:
-                attr_type = codexkg.rel_map[concept]["cols"][selected_attr]["type"]
-
-            # TODO can we make this a function
-            # check condtion type
-            cond_json = cond_setter(
-                attr_type, selected_attr, concept, "seed1", rule_num
-            )
-            attr_json["attr_concept"] = concept
-
-        else:
-            attr_string = " that " + selected_attr
-            st.subheader(f"Concepts for {selected_attr}")
-            selected_ent2 = st.selectbox(
-                f"Select Entity {rule_num}", plays_map[selected_attr]
-            )
-
-            with_attr_cond = st.checkbox(
-                "Concept condition?", value=True, key=f"concept cond {rule_num}"
-            )
-
-            if with_attr_cond:
-
-                attr_json["rel_ent"] = selected_ent2
-                attr_json["rel_attr"] = selected_attr
-                rel_name = get_rel_name_from_ents(codexkg, concept, selected_ent2)
-                attr_json["rel_name"] = rel_name
-                attr_json["rel_other"] = codexkg.entity_map[selected_ent2]["rels"][
-                    rel_name
-                ]["plays"]
-
-                attr_json["attr_concept"] = selected_ent2
-                attr_string += " " + selected_ent2
-                attrs2 = codexkg.entity_map[selected_ent2]["cols"]
-                attr_list2 = list(attrs2.keys())
-                selected_attr = st.selectbox(f"Select Attribute {rule_num}", attr_list2)
-                attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr][
-                    "type"
-                ]
-
-                attr_string += " that have a " + selected_attr
-
-                cond_json = cond_setter(
-                    attr_type, selected_attr, selected_ent2, "seed2", rule_num
-                )
-            else:
-                attr_json["rel_ent"] = selected_ent2
-                attr_json["rel_attr"] = selected_attr
-                rel_name = get_rel_name_from_ents(codexkg, concept, selected_ent2)
-                attr_json["rel_name"] = rel_name
-                attr_json["rel_other"] = codexkg.entity_map[selected_ent2]["rels"][
-                    rel_name
-                ]["plays"]
-
-                attr_json["attr_concept"] = selected_ent2
-                attr_string += " " + selected_ent2
-                attrs2 = codexkg.entity_map[selected_ent2]["cols"]
-                attr_list2 = list(attrs2.keys())
-                # selected_attr = st.selectbox(f"Select Attribute {rule_num}", attr_list2)
-                # attr_type = codexkg.entity_map[selected_ent2]["cols"][selected_attr]["type"]
-                attr_string + " that have a " + selected_ent2 + " relationship that "
-
-                cond_json = {}
-
-                attr_type = None
-
-            with_rel_cond = st.checkbox(
-                "Relationship condition?", key=f"rel cond {rule_num}"
-            )
-
-            if with_rel_cond:
-                rel_cond_list = attr_setter(codexkg, rel_name, False, rule_num + 1)
-                attr_json["rel_conds"] = rel_cond_list
-                # st.write(rel_cond_list)
-
-        attr_json["cond"] = cond_json
-        attr_json["attr_type"] = attr_type
-        attr_json["attribute"] = selected_attr
-        attr_json["attr_string"] = attr_string
-
-        attr_obj_list.append(attr_json)
-
-    return attr_obj_list
-
-
-def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
-
-    query_string = f"Find {plural(concept)}"
-
-    attr_len = len(attr_obj_list)
-    attr_counter = 1
-
-    for attr in attr_obj_list:
-
-        try:
-            query_string += f"{attr['attr_string']}{attr['cond']['cond_string']}"
-        except:
-            query_string += f"{attr['attr_string']}"
-
-        if "rel_conds" in attr:
-            query_string += " and "
-
-            query_string += query_string_find_maker(attr["rel_name"], attr["rel_conds"])
-
-        if not attr_counter == attr_len:
-            query_string += " and "
-
-        attr_counter += 1
-
-    query_string += ". "
-
-    return query_string
+    return selected_cond, selected_value
 
 
 def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
@@ -425,128 +276,190 @@ def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
     return rel_name
 
 
-def handle_rule_query(codexkg):
-
-    # get list of rules
-
-    rules = list(codexkg.rules_map.keys())
-    concept = st.selectbox("Select relationship", rules)
-    # st.write(codexkg.rules_map[concept])
-
-    rules_string = codexkg.rules_map[concept]["rule_string"]
-    st.subheader(rules_string)
-
-    query = f"match $x isa {concept}; get;"
-
-    rule_ans = codexkg.rules_map[concept]["rule_string_ans"]
-    # st.subheader(rule_ans)
-
-    # try:
-    #     rule_ans = codexkg.rules_map[concept]["rule_string_ans"]
-    # except:
-    #     rule_ans = "Company_A produces Product_name_X that has a name that Contains widget. Company_B produces Product_name_Y that has a name that Contains widget."
-
-    rule_resp = []
-
-    if st.button(f"Find {concept} relationships"):
-        answers = codexkg.raw_graql(query, "read")
-        st.write(answers)
-        answer_counter = 0
-        answer = answers[0]
-        answer_keys = list(answers[0].keys())
-
-        for key_con in answer_keys:
-
-            explanation = answer[key_con]["explanation"]
-            exp_keys = list(explanation.keys())
-            rule_new = rule_ans
-
-            for exp_key in exp_keys:
-
-                if exp_key in rule_ans:
-                    concept = exp_key.split("_")[0]
-
-                    if concept in list(codexkg.entity_map.keys()):
-                        concept_key = codexkg.entity_map[concept]["key"]
-
-                        try:
-                            rule_new = rule_new.replace(
-                                str(exp_key), str(explanation[exp_key][concept_key])
-                            )
-                        except:
-                            rule_new = rule_new
-
-                        # st.write(f"{exp_key}: {explanation[exp_key][concept_key]}")
-                        # st.subheader(rule_ans)
-
-            answer_counter += 1
-            if rule_new in rule_resp:
-                continue
-            rule_resp.append(rule_new)
-            col1, col2 = st.beta_columns(2)
-
-            col1.write(answer[key_con]["concepts"][0])
-            col2.write(answer[key_con]["concepts"][1])
-            st.subheader(rule_new)
-
-
-def find_action(codexkg):
-
+def make_find_action_obj(codexkg, rule_num):
     ents = list(codexkg.entity_map.keys())
     rels = list(codexkg.rel_map.keys())
 
     ents_rels = ents + rels
 
-    concepts = st.multiselect("Select Concepts", ents_rels)
+    concept = st.selectbox(
+        "Select Concept", ents_rels, key=f"Select concept {rule_num}"
+    )
 
-    st.write(codexkg.entity_map)
+    # st.write(codexkg.entity_map)
 
-    # concept_type = ""
-    codex_query_list = []
-    for concept in concepts:
+    attr_list = []
+    concept_map = {}
 
-        if concept in ents:
-            is_ent = True
-            concept_type = "Entity"
-        else:
-            is_ent = False
-            concept_type = "Relationship"
+    if concept in ents:
+        is_ent = True
 
-        st.header(f"{concept} Query Builder")
+        attr_list = list(codexkg.entity_map[concept]["cols"].keys())
+        concept_map = codexkg.entity_map[concept]
 
-        attr_obj_list = attr_setter(codexkg, concept, is_ent, 1)
+    else:
+        is_ent = False
+        attr_list = list(codexkg.rel_map[concept]["cols"].keys())
+        concept_map = codexkg.rel_map[concept]
 
-        concept_json = {}
-        concept_json["concept"] = concept
-        concept_json["concept_type"] = concept_type
-        concept_json["attrs"] = attr_obj_list
-        concept_json["query_string"] = query_string_find_maker(concept, attr_obj_list)
-        codex_query_list.append(concept_json)
+    st.header(f"{concept} Query Builder")
 
-        # st.write(attr_obj_list)
+    concept_attrs = st.multiselect(
+        "Select Concept attrs", attr_list, key=f"Select attrs {rule_num}"
+    )
 
-    # TODO make a codex_query object
-    # TODO add mulipte queries
-    try:
-        query_text = ""
-        for concept_obj in codex_query_list:
-            query_text += concept_obj["query_string"]
+    # for each concept select conds
+    concept_conds = []
+    concept_values = []
+    for attr in concept_attrs:
 
-    except:
-        query_text = "Enter Query:"
+        curr_cond, curr_val = select_cond(attr, concept, concept_map, 1 + rule_num)
+        concept_conds.append(curr_cond)
+        concept_values.append(curr_val)
 
-    # make a codex_query object here
-    curr_query = CodexQueryFind(concepts=codex_query_list, query_string=query_text)
+    # only entities have rel actions
+    if is_ent:
 
-    # st.write(str(curr_query))
+        concept_rels = list(concept_map["rels"].keys())
+        rel_list = []
+        concept_rel_map = {}
 
-    st.write(codex_query_list)
+        for concept_rel in concept_rels:
+            rel_action = concept_map["rels"][concept_rel]["plays"]
+            rel_list.append(rel_action)
+            if rel_action not in concept_rel_map:
+                concept_rel_map[rel_action] = []
 
-    st.header(query_text)
+            other_ent = concept_map["rels"][concept_rel]["with_ent"]
+            concept_rel_map[rel_action].append(other_ent)
+
+        # now have a select box for the rel list
+
+        rel_actions = st.multiselect(
+            "Select Relation action", rel_list, key=f"Select rel actions {rule_num}"
+        )
+
+        concept_rels = []
+        concept_rel_attrs = []
+        concept_rel_conds = []
+        concept_rel_values = []
+        with_rel_attrs = []
+        with_rel_conds = []
+        with_rel_values = []
+
+        for rel_act in rel_actions:
+            other_concepts = concept_rel_map[rel_act]
+            concept_rel = st.selectbox(
+                "Select other concept",
+                other_concepts,
+                key=f"Select other concept {rule_num}",
+            )
+
+            concept_rels.append(concept_rel)
+            # for each concept select conds
+
+            other_attr_list = list(codexkg.entity_map[concept_rel]["cols"].keys())
+
+            other_concept_attrs = st.multiselect(
+                "Select Concept attrs",
+                other_attr_list,
+                key=f"Select other concept attrs {rule_num}",
+            )
+            other_concept_conds = []
+            other_concept_values = []
+
+            other_concept_map = codexkg.entity_map[concept_rel]
+            for attr in other_concept_attrs:
+
+                curr_cond, curr_val = select_cond(
+                    attr, concept_rel, other_concept_map, 2 + rule_num
+                )
+                other_concept_conds.append(curr_cond)
+                other_concept_values.append(curr_val)
+
+            concept_rel_attrs.append(other_concept_attrs)
+            concept_rel_conds.append(other_concept_conds)
+            concept_rel_values.append(other_concept_values)
+
+            have_rel_conds = st.checkbox(
+                "Add relationship conditions?", key=f"Select rel conds {rule_num}"
+            )
+
+            if have_rel_conds:
+
+                curr_rel = get_rel_name_from_ents(codexkg, concept, concept_rel)
+                rel_concept_map = codexkg.rel_map[curr_rel]
+                rel_attr_list = list(codexkg.rel_map[curr_rel]["cols"].keys())
+                rel_concept_attrs = st.multiselect(
+                    "Select Relationship Concept attrs",
+                    rel_attr_list,
+                    key=f"Select rel concept attrs {rule_num}",
+                )
+
+                rel_concept_conds = []
+                rel_concept_values = []
+
+                for attr in rel_concept_attrs:
+
+                    curr_cond, curr_val = select_cond(
+                        attr, concept_rel, rel_concept_map, 3 + rule_num
+                    )
+                    rel_concept_conds.append(curr_cond)
+                    rel_concept_values.append(curr_val)
+
+                with_rel_attrs.append(rel_concept_attrs)
+                with_rel_conds.append(rel_concept_conds)
+                with_rel_values.append(rel_concept_values)
+
+    if rule_num == 1:
+        query_obj = find_action(
+            codexkg,
+            concept,
+            concept_attrs,
+            concept_conds,
+            concept_values,
+            rel_actions,
+            concept_rels,
+            concept_rel_attrs,
+            concept_rel_conds,
+            concept_rel_values,
+            with_rel_attrs,
+            with_rel_conds,
+            with_rel_values,
+        )
+
+        st.subheader(query_obj)
+    else:
+
+        query_obj = make_rule_cond(
+            codexkg,
+            concept,
+            concept_attrs,
+            concept_conds,
+            concept_values,
+            rel_actions,
+            concept_rels,
+            concept_rel_attrs,
+            concept_rel_conds,
+            concept_rel_values,
+            with_rel_attrs,
+            with_rel_conds,
+            with_rel_values,
+        )
+
+        # st.subheader(query_obj)
+
+    return query_obj
+
+
+def find_action_codex(codexkg):
+
+    query_obj = make_find_action_obj(codexkg, 1)
+
     if st.button("Query"):
 
         with st.spinner("Doing query..."):
-            answers = codexkg.query(curr_query)
+            answers = codexkg.query(query_obj)
 
         for key in answers.keys():
             st.subheader(key)
@@ -556,55 +469,7 @@ def find_action(codexkg):
                 st.write(answers[key])
 
 
-def attr_setter_compute(
-    codexkg: CodexKg, concept: str, is_ent: bool, action: str
-) -> list:
-
-    # Get Values from entites
-    if is_ent:
-        attrs = codexkg.entity_map[concept]["cols"]
-        attr_list = list(attrs.keys())
-        attr_list_comp = attr_list
-
-    # Get values for relationships
-    else:
-        attrs = codexkg.rel_map[concept]["cols"]
-        attr_list = list(attrs.keys())
-        attr_list.remove("codex_details")
-        attr_list_comp = attr_list
-
-    # this is the attribute for the entity i.e name
-
-    # check if it is a long/double
-    int_attrs = []
-    for attr in attr_list_comp:
-        if attrs[attr]["type"] == "double" or attrs[attr]["type"] == "long":
-            int_attrs.append(attr)
-
-    selected_attrs = st.multiselect(
-        "Select Attributes", int_attrs, key=f"{concept}_{action} attr select"
-    )
-
-    return selected_attrs
-
-
-def concept_string(concepts: list) -> str:
-
-    concept_string = "["
-    concept_len = len(concepts)
-    concept_counter = 1
-    for concept in concepts:
-
-        if concept_counter == concept_len:
-            concept_string += concept + "]"
-        else:
-            concept_string += concept + ", "
-        concept_counter += 1
-
-    return concept_string
-
-
-def compute_cluster(codexkg):
+def compute_cluster_action(codexkg):
 
     actions = ["connected-component", "k-core"]
     action = st.selectbox("Select Actions", actions)
@@ -663,7 +528,107 @@ def compute_cluster(codexkg):
         viz.cluster_graph(answers, ents, rels, codexkg)
 
 
-def compute_centrality(codexkg):
+def compute_action_codex(codexkg):
+
+    compute_obj = {}
+
+    actions = [
+        "Count",
+        "Sum",
+        "Maximum",
+        "Minimum",
+        "Mean",
+        "Median",
+        "Standard Deviation",
+    ]
+    action_list = st.multiselect("Select Actions", actions)
+
+    ents = list(codexkg.entity_map.keys())
+    rels = list(codexkg.rel_map.keys())
+    ents_rels = ents + rels
+
+    concepts = []
+    concept_attrs = []
+
+    for action in action_list:
+
+        compute_obj[action] = []
+        st.header(f"{action} Query Builder")
+
+        if action == "Count":
+            ents_rels.append("All Concepts")
+            concept = st.selectbox(
+                "Select Concept", ents_rels, key=f"{action} concept select"
+            )
+
+        else:
+            concept = st.selectbox(
+                "Select Concept", ents_rels, key=f"{action} concept select"
+            )
+
+        if concept in ents:
+            concept_map = codexkg.entity_map[concept]
+        elif concept in rels:
+            concept_map = codexkg.rel_map[concept]
+
+        if action == "Count":
+            concept_attr = ""
+
+        else:
+            st.subheader(f"{concept} Query Builder")
+            attr_list = list(concept_map["cols"].keys())
+
+            int_attrs = []
+
+            for attr in attr_list:
+                if (
+                    concept_map["cols"][attr]["type"] == "double"
+                    or concept_map["cols"][attr]["type"] == "long"
+                ):
+                    int_attrs.append(attr)
+
+            concept_attr = st.selectbox(
+                "Select attr", int_attrs, key=f"{action}_{concept}"
+            )
+
+        concept_attrs.append(concept_attr)
+        concepts.append(concept)
+
+    # Compute the Sum of Company budget and the Count of Products
+    # ans = codexkg.compute(
+    #     actions=["Sum", "Count"],
+    #     concepts=["Company", "Product"],
+    #     concept_attrs=["budget", ""],
+    # )
+
+    # st.write(action_list)
+    # st.write(concepts)
+    # st.write(concept_attrs)
+
+    query_obj = compute_action(codexkg, action_list, concepts, concept_attrs)
+    st.subheader(query_obj)
+
+    if st.button("Query"):
+
+        with st.spinner("Doing query..."):
+            answers = codexkg.query(query_obj)
+        # st.write(answers)
+
+        for key in answers.keys():
+
+            answer_map = answers[key]
+
+            for answer in answer_map:
+                # st.write(answer_map)
+                # st.write(answers[key])
+                st.subheader(f"{key}: {answer['answer']}")
+            # if answers[key] is None:
+            #     st.error("No Matches for Query")
+            # else:
+            #     st.write(answers[key])
+
+
+def compute_centrality_codex(codexkg):
 
     actions = ["degree", "k-core"]
     action = st.selectbox("Select Actions", actions)
@@ -751,108 +716,6 @@ def compute_centrality(codexkg):
         viz.cluster_graph(answers, ents, rels, codexkg)
 
 
-def compute_action(codexkg):
-
-    compute_obj = {}
-
-    actions = [
-        "Count",
-        "Sum",
-        "Maximum",
-        "Minimum",
-        "Mean",
-        "Median",
-        "Standard Deviation",
-    ]
-    action_list = st.multiselect("Select Actions", actions)
-
-    ents = list(codexkg.entity_map.keys())
-    rels = list(codexkg.rel_map.keys())
-    ents_rels = ents + rels
-
-    query_text_list = []
-
-    for action in action_list:
-
-        compute_obj[action] = []
-
-        if action == "Count":
-            ents_rels.append("All Concepts")
-            concepts = st.multiselect(
-                "Select Concepts", ents_rels, key=f"{action} concept select"
-            )
-
-        else:
-            concepts = st.multiselect(
-                "Select Concepts", ents_rels, key=f"{action} concept select"
-            )
-
-        # select concept
-        for concept in concepts:
-            st.header(f"{action} Query Builder")
-
-            if concept in ents:
-                is_ent = True
-            else:
-                is_ent = False
-
-            if action == "Count":
-                query_text = f"Compute {action} for {concept}"
-
-                query_text_list.append(query_text)
-                # st.header(query_text)
-
-                count_obj = {}
-                count_obj["concept"] = concept
-                count_obj["query_text"] = query_text
-
-                compute_obj[action].append(count_obj)
-
-            else:
-                st.subheader(f"{concept} Query Builder")
-                attr_obj_list = attr_setter_compute(codexkg, concept, is_ent, action)
-
-                for attr in attr_obj_list:
-                    query_text = f"Compute {action} for {attr} in {concept}"
-
-                    action_obj = {}
-                    action_obj["concept"] = concept
-                    action_obj["attr"] = attr
-                    action_obj["query_text"] = query_text
-
-                    compute_obj[action].append(action_obj)
-                    # st.header(query_text)
-                    query_text_list.append(query_text)
-
-    # st.write(compute_obj)
-
-    for text in query_text_list:
-        st.subheader(text)
-
-    curr_query = CodexQueryCompute(queries=compute_obj)
-
-    if st.button("Query"):
-
-        with st.spinner("Doing query..."):
-            answers = codexkg.query(curr_query)
-        # st.write(answers)
-
-        for key in answers.keys():
-
-            answer_map = answers[key]
-
-            for answer in answer_map:
-                # st.write(answer_map)
-                # st.write(answers[key])
-                st.subheader(f"{key}: {answer['answer']}")
-            # if answers[key] is None:
-            #     st.error("No Matches for Query")
-            # else:
-            #     st.write(answers[key])
-
-    # select int value
-
-
 def codex_reasoner(codexkg):
 
     st.header("Reasoner")
@@ -870,7 +733,7 @@ def codex_reasoner(codexkg):
 
     if action == "Find":
         st.markdown("This query will find concepts that match your input condtions")
-        find_action(codexkg)
+        find_action_codex(codexkg)
 
     if action == "Reason":
         st.markdown("This query will find relationships based on your rules")
@@ -878,133 +741,101 @@ def codex_reasoner(codexkg):
 
     if action == "Compute":
         st.markdown("This query will calculate statistical values over your data")
-        compute_action(codexkg)
+        compute_action_codex(codexkg)
 
     if action == "Centrality":
         st.markdown(
             "This query will find the most important instances in your data or a subset."
         )
-        compute_centrality(codexkg)
+        compute_centrality_codex(codexkg)
 
     if action == "Cluster":
         st.markdown(
             "This query will identify clusters of interconnected instances or those that are tightly linked within a network."
         )
-        compute_cluster(codexkg)
+        compute_cluster_action(codexkg)
 
 
-def rule_action(codexkg, rule_num):
+def handle_rule_query(codexkg):
 
-    ents = list(codexkg.entity_map.keys())
-    rels = list(codexkg.rel_map.keys())
+    # get list of rules
 
-    ents_rels = ents + rels
+    rules = list(codexkg.rules_map.keys())
+    concept = st.selectbox("Select relationship", rules)
+    # st.write(codexkg.rules_map[concept])
 
-    concept = st.selectbox(f"Select Rule{rule_num} Concepts", ents_rels)
+    rules_string = codexkg.rules_map[concept]["rule_string"]
+    st.subheader(rules_string)
 
-    # concept_type = ""
+    query = f"match $x isa {concept}; get;"
 
-    if concept in ents:
-        is_ent = True
-        concept_type = "Entity"
-    else:
-        is_ent = False
-        concept_type = "Relationship"
+    rule_ans = codexkg.rules_map[concept]["rule_string_ans"]
+    # st.subheader(rule_ans)
 
-    st.header(f"{concept} Query Builder")
+    # try:
+    #     rule_ans = codexkg.rules_map[concept]["rule_string_ans"]
+    # except:
+    #     rule_ans = "Company_A produces Product_name_X that has a name that Contains widget. Company_B produces Product_name_Y that has a name that Contains widget."
 
-    attr_obj_list = attr_setter(codexkg, concept, is_ent, rule_num)
+    rule_resp = []
 
-    concept_json = {}
-    concept_json["concept"] = concept
-    concept_json["concept_type"] = concept_type
-    concept_json["attrs"] = attr_obj_list
-    concept_json["query_string"] = query_string_find_maker(concept, attr_obj_list)
+    if st.button(f"Find {concept} relationships"):
+        answers = codexkg.raw_graql(query, "read")
+        # st.write(answers)
+        answer_counter = 0
+        answer = answers[0]
+        answer_keys = list(answers[0].keys())
 
-    # st.write(attr_obj_list)
+        for key_con in answer_keys:
 
-    # TODO make a codex_query object
-    # TODO add mulipte queries
-    try:
-        query_text = ""
-        query_text += concept_json["query_string"]
-    except:
-        query_text = "Enter Query:"
+            explanation = answer[key_con]["explanation"]
+            exp_keys = list(explanation.keys())
+            rule_new = rule_ans
 
-    # st.write(concept_json)
+            for exp_key in exp_keys:
 
-    # st.header(query_text)
+                if exp_key in rule_ans:
+                    concept = exp_key.split("_")[0]
 
-    return concept_json
+                    if concept in list(codexkg.entity_map.keys()):
+                        concept_key = codexkg.entity_map[concept]["key"]
+
+                        try:
+                            rule_new = rule_new.replace(
+                                str(exp_key), str(explanation[exp_key][concept_key])
+                            )
+                        except:
+                            rule_new = rule_new
+
+                        # st.write(f"{exp_key}: {explanation[exp_key][concept_key]}")
+                        # st.subheader(rule_ans)
+
+            answer_counter += 1
+            if rule_new in rule_resp:
+                continue
+            rule_resp.append(rule_new)
+            col1, col2 = st.beta_columns(2)
+
+            col1.write(answer[key_con]["concepts"][0])
+            col2.write(answer[key_con]["concepts"][1])
+            st.subheader(rule_new)
 
 
-def make_rule_string(rule_obj):
+def raw_query(codexkg):
 
-    rule_string = ""
-    rule_string_ans = ""
+    st.header("Raw graql queries")
 
-    # check cond1
-    rule_name = rule_obj["name"]
+    st.markdown("This for entering raw graql queries")
 
-    cond1 = rule_obj["cond1"]
-    cond2 = rule_obj["cond2"]
+    query_types = ["read", "write"]
+    mode = st.selectbox("Select query type", query_types)
 
-    rule_string += f"If {cond1['concept']} A "
-    rule_string_ans += f"{cond1['concept']}_A "
+    query = st.text_input("Enter Query")
 
-    attr_len = len(cond1["attrs"])
-    attr_counter = 1
-    for attr in cond1["attrs"]:
-
-        if "rel_attr" in attr:
-            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} X that has a {attr['attribute']} {attr['cond']['cond_string']}"
-            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_X that has a {attr['attribute']} {attr['cond']['cond_string']}"
-        else:
-            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
-            rule_string_ans += (
-                f" has a {attr['attribute']} {attr['cond']['cond_string']}"
-            )
-
-        if attr_counter == attr_len:
-            rule_string += ". "
-            rule_string_ans += ". "
-
-        else:
-            rule_string += " and "
-            rule_string_ans += " and "
-
-        attr_counter += 1
-
-    # check cond2
-    attr_len = len(cond2["attrs"])
-    attr_counter = 1
-    rule_string += f"If {cond2['concept']} B "
-    rule_string_ans += f"{cond1['concept']}_B "
-    for attr in cond2["attrs"]:
-
-        if "rel_attr" in attr:
-            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
-            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
-        else:
-            rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
-            rule_string_ans += (
-                f" has a {attr['attribute']} {attr['cond']['cond_string']}"
-            )
-
-        if attr_counter == attr_len:
-            rule_string += ". "
-            rule_string_ans += ". "
-        else:
-            rule_string += " and "
-            rule_string_ans += " and "
-
-        attr_counter += 1
-
-    rule_string += (
-        f"Then  {cond1['concept']} A and {cond2['concept']} B are {rule_name}"
-    )
-
-    return rule_string, rule_string_ans
+    if st.button("Do query"):
+        with st.spinner("Doing query..."):
+            answers = codexkg.raw_graql(query, mode)
+        st.write(answers)
 
 
 def rule_maker(codexkg):
@@ -1017,13 +848,16 @@ def rule_maker(codexkg):
 
     rule_name = st.text_input("Enter rule_name")
 
+    # replace spaces
+    rule_name = rule_name.replace(" ", "_")
+
     # cond 1
     st.markdown("Enter condtions for the first concept")
-    rule_cond1 = rule_action(codexkg, 1)
+    rule_cond1 = make_find_action_obj(codexkg, 5)
 
     # cond 2
     st.markdown("Enter condtions for the second concept")
-    rule_cond2 = rule_action(codexkg, 2)
+    rule_cond2 = make_find_action_obj(codexkg, 10)
 
     # query =f"define {rule_name}  sub rule,"
 
@@ -1034,8 +868,6 @@ def rule_maker(codexkg):
     rule_obj["name"] = rule_name
     rule_obj["cond1"] = rule_cond1
     rule_obj["cond2"] = rule_cond2
-
-    # st.write(rule_obj)
 
     rule_string, rule_string_ans = make_rule_string(rule_obj)
 
@@ -1058,49 +890,20 @@ def rule_maker(codexkg):
                 st.error("Failed to create rule")
 
 
-def raw_query(codexkg):
+def concept_string(concepts: list) -> str:
 
-    st.header("Raw graql queries")
+    concept_string = "["
+    concept_len = len(concepts)
+    concept_counter = 1
+    for concept in concepts:
 
-    st.markdown("This for entering raw graql queries")
+        if concept_counter == concept_len:
+            concept_string += concept + "]"
+        else:
+            concept_string += concept + ", "
+        concept_counter += 1
 
-    query_types = ["read", "write"]
-    mode = st.selectbox("Select query type", query_types)
-
-    query = st.text_input("Enter Query")
-
-    if st.button("Do query"):
-        with st.spinner("Doing query..."):
-            answers = codexkg.raw_graql(query, mode)
-        st.write(answers)
-
-
-def ontology_maker_app(codexkg):
-
-    st.header("Ontology Maker")
-    st.subheader("Define your schema")
-
-    st.markdown("The Ontology Maker allows you to define how your data is structured")
-
-    options = ["Entites", "Relationships"]
-    selected_option = st.selectbox("Select concept", options)
-
-    if selected_option == "Entites":
-        # show entities
-        codex_entities(codexkg)
-
-    elif selected_option == "Relationships":
-        # show rels
-        codex_rels(codexkg)
-
-
-def graph_codex_ont(codexkg):
-
-    ents = codexkg.entity_map
-    rels = codexkg.rel_map
-    keyspace = codexkg.keyspace
-
-    viz.ent_rel_graph(ents, rels, keyspace)
+    return concept_string
 
 
 # user opens up codex
@@ -1197,20 +1000,6 @@ def get_codex_keyspaces():
             st.balloons()
             status_container.success(f"{keyspace} deleted")
 
-    # show_ont, show_reason, show_rules = st.beta_columns(3)
-
-    # with show_ont:
-    #     st.header("Ontology Maker")
-    #     st.subheader("Define your data schema")
-
-    # with show_reason:
-    #     st.header("Query")
-    #     st.subheader("Search your data")
-
-    # with show_rules:
-    #     st.header("Infer")
-    #     st.subheader("Set up rules for Automated Reasioning")
-
 
 def main():
 
@@ -1218,28 +1007,6 @@ def main():
     st.header("Codex allows you to gain insights from your data")
 
     get_codex_keyspaces()
-
-    # keyspace = st.text_input("Enter your project name")
-
-    # if keyspace is not "":
-    #     codexkg = CodexKg()
-    #     codexkg.create_db(keyspace)
-    #     main_menu(codexkg, keyspace)
-
-    #     # show entities
-    #     codex_entities(codexkg)
-
-    #     # show rels
-    #     codex_rels(codexkg)
-
-    #     # show reasoner
-    #     codex_reasoner(codexkg)
-
-    #     # show ruler maker
-    #     rule_maker(codexkg)
-
-    #     # raw query
-    #     raw_query(codexkg)
 
 
 if __name__ == "__main__":

@@ -37,45 +37,27 @@ class CodexQueryFind(CodexQuery):
     def __init__(
         self,
         concepts: dict,
-        # atrr_type: str,
-        # attribute: str,
-        # condition_type: str,
-        # condition_value: Any,
         query_string: str,
     ) -> None:
-        # logging.info("Created codex query find")
 
         self.concepts = concepts
         self.query_string = query_string
 
     def __repr__(self):
         return f"{self.query_string}"
-        # - Codex Query: action: {self.action} | concept: {self.concept} |  concept: {self.concept}
-
-    # spitballin
-    # action
-    # concept
-    # concept_type
-    # compare_type
-    # attribute
-    # condtion_type
-    # cond_value
 
 
 class CodexQueryCompute(CodexQuery):
 
     action = "Compute"
 
-    def __init__(
-        self,
-        queries: dict,
-    ) -> None:
-        # logging.info("Created codex query compute")
+    def __init__(self, queries: dict, query_text_list: list) -> None:
 
         self.queries = queries
+        self.query_text_list = query_text_list
 
     def __repr__(self):
-        return f"{self.queries}"
+        return f"{self.query_text_list}"
 
 
 class CodexQueryCluster(CodexQuery):
@@ -86,7 +68,6 @@ class CodexQueryCluster(CodexQuery):
         self,
         query: dict,
     ) -> None:
-        # logging.info("Created codex query cluster")
 
         self.query = query
 
@@ -104,7 +85,6 @@ class CodexQueryRule(CodexQuery):
         rule_string: str,
         rule_string_ans: str,
     ) -> None:
-        # logging.info("Created codex query rule")
 
         self.rule = rule
         self.rule_string = rule_string

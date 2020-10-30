@@ -455,14 +455,33 @@ def query_string_find_maker(concept: str, attr_obj_list: dict) -> str:
         try:
 
             query_string += f"{attr['attr_string']}{attr['cond']['cond_string']}"
-            # logging.info(query_string)
+            logging.info(query_string)
         except:
-            query_string += f"{attr['attr_string']}"
+            try:
+                query_string += f"{attr['attr_string']}{attr['cond'][0]['cond_string']}"
+            except:
+                query_string += f"{attr['attr_string']}"
 
         if "rel_conds" in attr:
-            query_string += " and "
 
-            query_string += query_string_find_maker(attr["rel_name"], attr["rel_conds"])
+            try:
+                query_string += (
+                    f" and have a {attr['rel_conds'][0]['concept']} relation with "
+                )
+            except:
+                query_string += ""
+
+            cond_counter = 0
+            cond_len = len(attr["rel_conds"])
+
+            for cond in attr["rel_conds"]:
+                logging.info(cond)
+
+                query_string += f" {cond['attribute']} {cond['cond_string']}"
+                cond_counter += 1
+
+                if not cond_counter == cond_len:
+                    query_string += " and "
 
         if not attr_counter == attr_len:
             query_string += " and "
@@ -501,8 +520,56 @@ def make_rule_string(rule_obj):
     for attr in cond1["attrs"]:
 
         if "rel_attr" in attr:
-            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} X that has a {attr['attribute']} {attr['cond']['cond_string']}"
-            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_X that has a {attr['attribute']} {attr['cond']['cond_string']}"
+            logging.info(attr)
+            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y "
+
+            rule_string_ans += (
+                f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_Y "
+            )
+
+            attrib_counter = 0
+            num_attrs = len(attr["attribute"])
+            for attrib in attr["attribute"]:
+
+                rule_string += (
+                    f"that has a {attrib} {attr['cond'][attrib_counter]['cond_string']}"
+                )
+
+                rule_string_ans += (
+                    f"that has a {attrib} {attr['cond'][attrib_counter]['cond_string']}"
+                )
+
+                attrib_counter += 1
+
+                if attrib_counter != num_attrs:
+                    rule_string += " and "
+
+            if "rel_conds" in attr:
+
+                try:
+                    rule_string += (
+                        f" and have a {attr['rel_conds'][0]['concept']} relation with "
+                    )
+
+                    rule_string_ans += (
+                        f" and have a {attr['rel_conds'][0]['concept']} relation with"
+                    )
+                except:
+                    rule_string += ""
+
+                cond_counter = 0
+                cond_len = len(attr["rel_conds"])
+
+                for cond in attr["rel_conds"]:
+                    logging.info(cond)
+
+                    rule_string += f" {cond['attribute']} {cond['cond_string']}"
+                    rule_string_ans += f" {cond['attribute']} {cond['cond_string']}"
+                    cond_counter += 1
+
+                    if not cond_counter == cond_len:
+                        rule_string += " and "
+
         else:
             rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
             rule_string_ans += (
@@ -510,8 +577,8 @@ def make_rule_string(rule_obj):
             )
 
         if attr_counter == attr_len:
-            rule_string += ". "
-            rule_string_ans += ". "
+            rule_string += "."
+            rule_string_ans += "."
 
         else:
             rule_string += " and "
@@ -522,13 +589,61 @@ def make_rule_string(rule_obj):
     # check cond2
     attr_len = len(cond2["attrs"])
     attr_counter = 1
-    rule_string += f"If {cond2['concept']} B "
+    rule_string += f" If {cond2['concept']} B "
     rule_string_ans += f"{cond2['concept']}_B "
     for attr in cond2["attrs"]:
 
         if "rel_attr" in attr:
-            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
-            rule_string_ans += f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_Y that has a {attr['attribute']} {attr['cond']['cond_string']}"
+            logging.info(attr)
+            rule_string += f"{attr['rel_attr']} {attr['rel_ent']} Y "
+
+            rule_string_ans += (
+                f"{attr['rel_attr']} {attr['rel_ent']}_{attr['attribute']}_Y "
+            )
+
+            attrib_counter = 0
+            num_attrs = len(attr["attribute"])
+            for attrib in attr["attribute"]:
+
+                rule_string += (
+                    f"that has a {attrib} {attr['cond'][attrib_counter]['cond_string']}"
+                )
+
+                rule_string_ans += (
+                    f"that has a {attrib} {attr['cond'][attrib_counter]['cond_string']}"
+                )
+
+                attrib_counter += 1
+
+                if attrib_counter != num_attrs:
+                    rule_string += " and "
+
+            if "rel_conds" in attr:
+
+                try:
+                    rule_string += (
+                        f" and have a {attr['rel_conds'][0]['concept']} relation with "
+                    )
+
+                    rule_string_ans += (
+                        f" and have a {attr['rel_conds'][0]['concept']} relation with"
+                    )
+                except:
+                    rule_string += ""
+
+                cond_counter = 0
+                cond_len = len(attr["rel_conds"])
+
+                for cond in attr["rel_conds"]:
+                    logging.info(cond)
+
+                    rule_string += f" {cond['attribute']} {cond['cond_string']}"
+                    rule_string_ans += f" {cond['attribute']} {cond['cond_string']}"
+                    cond_counter += 1
+
+                    if not cond_counter == cond_len:
+                        rule_string += " and "
+
         else:
             rule_string += f" has a {attr['attribute']} {attr['cond']['cond_string']}"
             rule_string_ans += (
@@ -759,7 +874,12 @@ def compute_action(
         concept_attr = concept_attrs[counter]
 
         if concept not in ents_rels:
-            raise ValueError(f"Invalid concept: {concept}, must be from {ents_rels}")
+            if concept == "All Concepts":
+                pass
+            else:
+                raise ValueError(
+                    f"Invalid concept: {concept}, must be from {ents_rels}"
+                )
 
         if action == "Count":
             query_text = f"Compute {action} for {concept}"
@@ -768,7 +888,6 @@ def compute_action(
             count_obj = {}
             count_obj["concept"] = concept
             count_obj["query_text"] = query_text
-
             compute_obj[action].append(count_obj)
 
         else:
@@ -805,7 +924,7 @@ def compute_action(
             compute_obj[action].append(action_obj)
             query_text_list.append(query_text)
 
-    curr_query = CodexQueryCompute(queries=compute_obj)
+    curr_query = CodexQueryCompute(queries=compute_obj, query_text_list=query_text_list)
     logging.info(curr_query)
 
     return curr_query
