@@ -639,6 +639,7 @@ def attr_make_rule_query(concept: str, dif_1: str, dif_2: str) -> str:
             # contain_statements.extend(contains_array)
 
             attr_loop_counter = 0
+            attr_obj = None
             for attr_type in attr["attr_type"]:
 
                 # hmm only if attr_type is not null
@@ -679,6 +680,9 @@ def attr_make_rule_query(concept: str, dif_1: str, dif_2: str) -> str:
 
                 # logging.info("got here")
                 # logging.info(attr["rel_conds"])
+
+                if attr_obj is None:
+                    attr_obj = {}
 
                 for rel_cond in attr["rel_conds"]:
 
