@@ -81,6 +81,37 @@ logging.info(ans)
 
 For complete documentation on Codex, tutorials and teaching resources, frequently asked questions, and more, please visit our [Wiki](https://github.com/banjtheman/grakn-codex/wiki).
 
+
+## Codex Workbase
+
+Powered by the Codex API and [Streamlit](https://www.streamlit.io/) you can use a web based GUI to interact with your data.
+
+To start simply run
+
+```bash
+streamlit run codex_st.py
+```
+
+
+
+You can upload data
+
+
+
+
+You can do queries 
+
+
+
+
+You can make rules
+
+
+
+
+
+
+
 ## Contributing to Codex
 
 Codex is an open source project that is supported by a community who will gratefully and humbly accept any contributions you might make to the project. Large or small, any contribution makes a big difference; and if you've never contributed to an open source project before, we hope you will start with Codex!
