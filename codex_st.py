@@ -20,18 +20,41 @@ from codex.codex_query_builder import (
 
 
 @st.cache(allow_output_mutation=True)
-def cache_df(entity_csv):
+def cache_df(entity_csv: str) -> pd.DataFrame:
+    """
+    Purpose:
+        Cache any dataframe
+    Args:
+        entity_csv: path to csv
+    Returns:
+        df: Pandas dataframe
+    """
     df = pd.read_csv(entity_csv, index_col=False)
     return df
 
 
 @st.cache(allow_output_mutation=True)
-def save_cols(cols):
+def save_cols(cols: list) -> list:
+    """
+    Purpose:
+        cache df columns
+    Args:
+        cols: cache of df cols
+    Returns:
+        cols: list of columns
+    """
     return cols
 
 
 def codex_entities(codexkg):
-
+    """
+    Purpose:
+        Logic for codex entities
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     # show current entities
 
     st.header("Entites")
@@ -63,6 +86,8 @@ def codex_entities(codexkg):
     entity_csv = new_entity.file_uploader("Entity CSV", type="csv")
 
     if entity_csv is not None:
+        # make sure it reads from 0
+        entity_csv.seek(0)
         df = cache_df(entity_csv)
         cols = save_cols(df.columns)
         new_entity.write(df)
@@ -87,8 +112,15 @@ def codex_entities(codexkg):
                     st.error("Failed to create entity")
 
 
-def codex_rels(codexkg):
-
+def codex_rels(codexkg) -> None:
+    """
+    Purpose:
+        Logic for codex relationships
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     st.header("Relationships")
 
     st.markdown(
@@ -153,13 +185,17 @@ def codex_rels(codexkg):
                     st.error(error)
                     st.error("Failed to create Relationship")
 
-    # codexkg.create_relationship(
-    #     "sample_data/company_sample.csv", "Proudctize", "Company", "Product"
-    # )
-
 
 def main_menu(codexkg, keyspace):
-
+    """
+    Purpose:
+        Create sidebar menu
+    Args:
+        codexkg: Codexkg Object
+        keyspace: current keyspace
+    Returns:
+        N/A
+    """
     st.sidebar.header("These are the codex actions")
 
     st.sidebar.header("Refresh")
@@ -172,8 +208,15 @@ def main_menu(codexkg, keyspace):
         codexkg.delete_db(keyspace)
 
 
-def ontology_maker_app(codexkg):
-
+def ontology_maker_app(codexkg) -> None:
+    """
+    Purpose:
+        Logic for codex ontology maker app
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     st.header("Ontology Maker")
     st.subheader("Define your schema")
 
@@ -192,7 +235,14 @@ def ontology_maker_app(codexkg):
 
 
 def graph_codex_ont(codexkg):
-
+    """
+    Purpose:
+        Logic to dispaly keyspace ontology
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     ents = codexkg.entity_map
     rels = codexkg.rel_map
     keyspace = codexkg.keyspace
@@ -201,7 +251,18 @@ def graph_codex_ont(codexkg):
 
 
 def select_cond(attr, concept, concept_map, key):
-
+    """
+    Purpose:
+        Logic to select condition
+    Args:
+        attr: current attribute
+        concept: current concept
+        concept_map: details fro concept
+        key: key tracking for streamlit
+    Returns:
+        selected_cond : user selected condition
+        selected_val: user selecetd value
+    """
     attr_type = concept_map["cols"][attr]["type"]
 
     st.subheader(f"Select Conditions for {concept} {attr}")
@@ -277,6 +338,15 @@ def get_rel_name_from_ents(codexkg, rel1: str, rel2: str) -> str:
 
 
 def make_find_action_obj(codexkg, rule_num):
+    """
+    Purpose:
+        Logic for codex entities
+    Args:
+        codexkg: Codexkg Object
+        rule_num: key for streamlit
+    Returns:
+        query_object : Query object to return
+    """
     ents = list(codexkg.entity_map.keys())
     rels = list(codexkg.rel_map.keys())
 
@@ -453,7 +523,14 @@ def make_find_action_obj(codexkg, rule_num):
 
 
 def find_action_codex(codexkg):
-
+    """
+    Purpose:
+        Page for find action
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     query_obj = make_find_action_obj(codexkg, 1)
 
     if st.button("Query"):
@@ -470,7 +547,14 @@ def find_action_codex(codexkg):
 
 
 def compute_cluster_action(codexkg):
-
+    """
+    Purpose:
+        Page for cluster action
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     actions = ["connected-component", "k-core"]
     action = st.selectbox("Select Actions", actions)
 
@@ -529,7 +613,14 @@ def compute_cluster_action(codexkg):
 
 
 def compute_action_codex(codexkg):
-
+    """
+    Purpose:
+        Page for compute action
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     compute_obj = {}
 
     actions = [
@@ -594,17 +685,6 @@ def compute_action_codex(codexkg):
         concept_attrs.append(concept_attr)
         concepts.append(concept)
 
-    # Compute the Sum of Company budget and the Count of Products
-    # ans = codexkg.compute(
-    #     actions=["Sum", "Count"],
-    #     concepts=["Company", "Product"],
-    #     concept_attrs=["budget", ""],
-    # )
-
-    # st.write(action_list)
-    # st.write(concepts)
-    # st.write(concept_attrs)
-
     query_obj = compute_action(codexkg, action_list, concepts, concept_attrs)
     st.subheader(query_obj)
 
@@ -619,17 +699,18 @@ def compute_action_codex(codexkg):
             answer_map = answers[key]
 
             for answer in answer_map:
-                # st.write(answer_map)
-                # st.write(answers[key])
                 st.subheader(f"{key}: {answer['answer']}")
-            # if answers[key] is None:
-            #     st.error("No Matches for Query")
-            # else:
-            #     st.write(answers[key])
 
 
 def compute_centrality_codex(codexkg):
-
+    """
+    Purpose:
+        Page for centrality action
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     actions = ["degree", "k-core"]
     action = st.selectbox("Select Actions", actions)
 
@@ -717,7 +798,14 @@ def compute_centrality_codex(codexkg):
 
 
 def codex_reasoner(codexkg):
-
+    """
+    Purpose:
+        Page for the reasoner
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     st.header("Reasoner")
     st.subheader("Ask and you shall receive")
 
@@ -757,7 +845,14 @@ def codex_reasoner(codexkg):
 
 
 def handle_rule_query(codexkg):
-
+    """
+    Purpose:
+        Page for rule search
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     # get list of rules
 
     rules = list(codexkg.rules_map.keys())
@@ -822,7 +917,14 @@ def handle_rule_query(codexkg):
 
 
 def raw_query(codexkg):
-
+    """
+    Purpose:
+        Page for raw queries
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     st.header("Raw graql queries")
 
     st.markdown("This for entering raw graql queries")
@@ -839,7 +941,14 @@ def raw_query(codexkg):
 
 
 def rule_maker(codexkg):
-
+    """
+    Purpose:
+        Page to make rules
+    Args:
+        codexkg: Codexkg Object
+    Returns:
+        N/A
+    """
     st.header("Rule Maker")
     st.subheader("lets make some rules")
     st.markdown(
@@ -891,7 +1000,14 @@ def rule_maker(codexkg):
 
 
 def concept_string(concepts: list) -> str:
-
+    """
+    Purpose:
+        Turn list of concepts to a graql string
+    Args:
+        concept: list of concepts
+    Returns:
+        concept_string: concepts as a string
+    """
     concept_string = "["
     concept_len = len(concepts)
     concept_counter = 1
@@ -909,7 +1025,14 @@ def concept_string(concepts: list) -> str:
 # user opens up codex
 # auto connect to localhost, have expander setup options
 def get_codex_keyspaces():
-
+    """
+    Purpose:
+        Setup for codex
+    Args:
+        N/A
+    Returns:
+        N/A
+    """
     st.sidebar.subheader("Here are options to configure the Grakn and Redis Databases")
     expander = st.sidebar.beta_expander("Database Options")
 
@@ -1002,7 +1125,14 @@ def get_codex_keyspaces():
 
 
 def main():
-
+    """
+    Purpose:
+        Start codex_st
+    Args:
+        N/A
+    Returns:
+        N/A
+    """
     st.title("Codex")
     st.header("Codex allows you to gain insights from your data")
 
