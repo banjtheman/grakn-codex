@@ -92,21 +92,25 @@ To start simply run
 streamlit run codex_st.py
 ```
 
-
-
-You can upload data
-
+![](https://user-images.githubusercontent.com/696254/97784008-e6a8ab00-1b71-11eb-8d8b-2ad37ab42e6b.png)
 
 
 
-You can do queries 
+### You can upload data
+
+![](https://user-images.githubusercontent.com/696254/97784119-9716af00-1b72-11eb-8d97-fdf41c5ddff2.png)
+
+
+### You can do queries 
+
+![](https://user-images.githubusercontent.com/696254/97784042-1788e000-1b72-11eb-9473-3b22bf772ec1.png)
 
 
 
 
-You can make rules
+### You can make rules
 
-
+![](https://user-images.githubusercontent.com/696254/97784074-4d2dc900-1b72-11eb-861f-e3edfdd687b9.png) ![](https://user-images.githubusercontent.com/696254/97784098-6d5d8800-1b72-11eb-93f1-a0bb5a8f7bda.png)
 
 
 
