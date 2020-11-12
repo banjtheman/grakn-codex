@@ -699,6 +699,8 @@ def compute_action_codex(codexkg):
             answer_map = answers[key]
 
             for answer in answer_map:
+                if key == "graql_queries":
+                    continue
                 st.subheader(f"{key}: {answer['answer']}")
 
 
@@ -991,9 +993,10 @@ def rule_maker(codexkg):
 
         with st.spinner("Creating rule..."):
             try:
-                _answers = codexkg.query(curr_query)
-                # st.write(answers)
+                answers = codexkg.query(curr_query)
                 st.success("Rule created")
+                st.write(answers)
+
             except Exception as error:
                 st.error(error)
                 st.error("Failed to create rule")

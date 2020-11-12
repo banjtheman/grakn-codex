@@ -561,6 +561,7 @@ def compute_query(session, query_object: dict) -> dict:
     """
     queries = query_object.queries
     compute_results = {}
+    compute_results["graql_queries"] = []
 
     for action in queries:
 
@@ -581,6 +582,7 @@ def compute_query(session, query_object: dict) -> dict:
                 results_obj["concept"] = concept
                 results_obj["query"] = graql_query
                 logging.info(graql_query)
+                compute_results["graql_queries"].append(graql_query)
 
                 answer = run_compute_query(session, graql_query)
                 results_obj["answer"] = answer
@@ -600,6 +602,7 @@ def compute_query(session, query_object: dict) -> dict:
                 results_obj["concept"] = concept
                 results_obj["query"] = graql_query
                 logging.info(graql_query)
+                compute_results["graql_queries"].append(graql_query)
 
                 answer = run_compute_query(session, graql_query)
                 results_obj["answer"] = answer
@@ -797,7 +800,7 @@ def rule_query(session, query_object: dict) -> dict:
     return rules_map
 
 
-def find_query(session, query_object: dict) -> dict:
+def find_query(session, query_object: dict) -> Tuple[dict, list]:
     """
     Purpose:
        Construct the find graql query
@@ -933,7 +936,7 @@ def find_query(session, query_object: dict) -> dict:
         concept_queries.append(grakn_query)
 
     answers = run_find_query(session, concept_queries, concepts)
-    return answers
+    return answers, concept_queries
 
 
 # TODO do we need this function?
@@ -1394,11 +1397,12 @@ def query_grakn(session, query_object) -> dict:
     answers = {}
 
     if query_object.action == "Find":
-        answers = find_query(session, query_object)
+        answers, concept_queries = find_query(session, query_object)
         answers_df_map = {}
 
         for answer in answers:
             answers_df_map[answer] = turn_to_df(answers[answer])
+        answers_df_map["graql_queries"] = concept_queries
         return answers_df_map
 
     elif query_object.action == "Compute":
