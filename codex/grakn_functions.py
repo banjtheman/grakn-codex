@@ -84,6 +84,9 @@ def check_types(df: pd.DataFrame, col: str) -> ValueType:
     if col == "desc":
         raise ValueError("desc is a reserved word sorry, rename your column")
 
+    if col == "entity":
+        raise ValueError("entity is a reserved word sorry, rename your column")
+
     if is_string_dtype(df[col]):
 
         # check if string is a date
