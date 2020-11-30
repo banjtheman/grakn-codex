@@ -165,7 +165,7 @@ def main():
 
     setup(
         author="Banjo Obayomi",
-        author_email="ba",
+        author_email="banjtheman@gmail.com",
         classifiers=[
             "Development Status :: 5 - Production/Stable",
             "Intended Audience :: Developers",
@@ -177,14 +177,14 @@ def main():
             "Programming Language :: Python :: 3.8",
         ],
         description=(
-            "TopicBlob is a package to perform quick and easy topic modeling on text."
+            "Codex is a Python package that provides a simple, yet powerful API designed to make working with the Grakn knowledge graph intuitive"
         ),
         include_package_data=True,
         install_requires=install_requirements,
         keywords=["python", "knowledge graph", "grakn", "nlp", "database"],
         long_description=readme,
         long_description_content_type="text/markdown",
-        name="grakn-codex",
+        name="grakn_codex",
         packages=packages,
         project_urls={},
         python_requires=">3.6",

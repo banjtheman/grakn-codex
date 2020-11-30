@@ -28,7 +28,7 @@ Codex is compatible with Python 3.6 or later. The simplest way to install Codex 
 ```bash
 git clone https://github.com/banjtheman/grakn-codex.git 
 cd grakn-codex
-pip install --editable .
+pip install grakn-codex
 ```
 
 In addition to the python package, Codex leverages Grakn and the Redis docker images to store data.
