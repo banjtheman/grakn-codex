@@ -1679,6 +1679,7 @@ def sanitize_text(text: str) -> str:
     """
     # will add more when issues come
     # text = str(text).replace("/", "_").replace(".", "_dot_")
+    text = str(text).replace('"',"'")
     return str(text)
 
 
