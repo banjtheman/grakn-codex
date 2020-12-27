@@ -2,7 +2,7 @@ version: "3"
 
 services:
   grakn:
-    image: graknlabs/grakn:latest
+    image: graknlabs/grakn:1.8.3
     ports:
       - "48555:48555"
     volumes:
