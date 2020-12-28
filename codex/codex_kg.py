@@ -223,7 +223,7 @@ class CodexKg:
     ) -> Tuple[int, str]:
         """
         Purpose:
-            Query Grakn
+            Create new entity
         Args:
             df: Relationship data
             entity_name: name for the entity
@@ -265,12 +265,37 @@ class CodexKg:
             logging.error(error)
             return -1, str(error)
 
+    def add_entities(self, df: pd.DataFrame, entity_name: str) -> Tuple[int, str]:
+        """
+        Purpose:
+            Add entites
+        Args:
+            df: Relationship data
+            entity_name: name for the entity
+        Returns:
+            status: 0 if pass, -1 if fail
+        """
+        logging.info(f"Adding to entity {entity_name}")
+
+        try:
+            # df = pd.read_csv(csv_path)
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                with client.session(keyspace=self.keyspace) as session:
+
+                    # logging.info(self.entity_map)
+                    add_entities_into_grakn(session, df, entity_name, self.entity_map)
+
+                    return 0, "good"
+        except Exception as error:
+            logging.error(error)
+            return -1, str(error)
+
     def create_relationship(
         self, df: pd.DataFrame, rel_name: str, rel1: str, rel2: str
     ) -> Tuple[int, str]:
         """
         Purpose:
-            Query Grakn
+            Create Relationship
         Args:
             df: Relationship data
             rel_name: relationship name
@@ -341,6 +366,33 @@ class CodexKg:
                     curr_keyspace["entity_map"] = self.entity_map
                     # update redis
                     self.cache.set(self.rkey, json.dumps(curr_keyspace))
+
+                    return 0, "good"
+        except Exception as error:
+            logging.error(error)
+            return -1, str(error)
+
+    def add_relationships(
+        self,
+        df: pd.DataFrame,
+        rel_name: str,
+    ) -> Tuple[int, str]:
+        """
+        Purpose:
+            Add entites
+        Args:
+            df: Relationship data
+            rel_name: name for the relationship
+        Returns:
+            status: 0 if pass, -1 if fail
+        """
+        logging.info(f"Adding to relationship {rel_name}")
+
+        try:
+            with GraknClient(uri=self.uri, credentials=self.creds) as client:
+                with client.session(keyspace=self.keyspace) as session:
+
+                    add_relationship_data(df, self.rel_map[rel_name], rel_name, session)
 
                     return 0, "good"
         except Exception as error:

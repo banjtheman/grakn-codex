@@ -274,6 +274,14 @@ def loading_data(codexkg):
     # create rels
     codexkg.create_relationship(company_products, "Productize", "Product", "Company")
 
+    # add standalone entities
+    tech_products2 = pd.read_csv("sample_data/tech_products2.csv")
+    codexkg.add_entities(tech_products2, "Product")
+
+    # add standalone relationships
+    company_products2 = pd.read_csv("sample_data/tech_products_rel2.csv")
+    codexkg.add_relationships(company_products2, "Productize")
+
 
 def main():
 
