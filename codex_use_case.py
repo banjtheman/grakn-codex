@@ -289,7 +289,7 @@ def main():
 
     # Init Codex
     # codexkg = CodexKg(use_redis=False)  # Use without cache
-    codexkg = CodexKg(use_redis=False)
+    codexkg = CodexKg()
 
     # Connect to keyspace
     codexkg.create_db("tech_example")
