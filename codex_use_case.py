@@ -288,7 +288,8 @@ def main():
     pprint.pprint("This will highlight how we can use Codex to create knowledge graphs")
 
     # Init Codex
-    codexkg = CodexKg()
+    # codexkg = CodexKg(use_redis=False)  # Use without cache
+    codexkg = CodexKg(use_redis=False)
 
     # Connect to keyspace
     codexkg.create_db("tech_example")

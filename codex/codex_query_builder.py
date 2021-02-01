@@ -1,17 +1,12 @@
-import json
 import re
-import uuid
 import logging
 
-# import inflect
 import pandas as pd
 
-# from .codex_kg import CodexKg
 from .codex_query import (
     CodexQueryFind,
     CodexQueryCompute,
     CodexQueryCluster,
-    CodexQueryRule,
 )
 
 logging.basicConfig(
@@ -95,9 +90,7 @@ def cond_json_maker(concept_cond: str, concept_value) -> dict:
     return cond_json
 
 
-def cond_setter(
-    attr_type: str, attr_name: str, concept: str, concept_cond, concept_value
-) -> list:
+def cond_setter(attr_type: str, concept_cond, concept_value) -> list:
     """
     Purpose:
         Get the condtions object
@@ -208,8 +201,6 @@ def cond_array_maker(
 
         cond_json = cond_setter(
             curr_type,
-            rel_attr,
-            concept,
             concept_cond,
             concept_value,
         )
@@ -233,7 +224,6 @@ def attr_setter(
     codexkg,
     concept: str,
     is_ent: bool,
-    rule_num: int,
     concept_attrs,
     concept_conds,
     concept_values,
@@ -314,9 +304,7 @@ def attr_setter(
             concept_cond = concept_conds[concept_attr_counter]
             concept_value = concept_values[concept_attr_counter]
 
-            cond_json = cond_setter(
-                attr_type, selected_attr, concept, concept_cond, concept_value
-            )
+            cond_json = cond_setter(attr_type, concept_cond, concept_value)
             attr_json["attr_concept"] = concept
 
             concept_attr_counter += 1
@@ -382,8 +370,6 @@ def attr_setter(
                     cond_json.append(
                         cond_setter(
                             curr_type,
-                            rel_attr,
-                            selected_ent2,
                             concept_cond,
                             concept_value,
                         )
@@ -714,7 +700,6 @@ def make_rule_cond(
         codexkg,
         concept,
         is_ent,
-        1,
         concept_attrs,
         concept_conds,
         concept_values,
@@ -787,7 +772,6 @@ def find_action(
         codexkg,
         concept,
         is_ent,
-        1,
         concept_attrs,
         concept_conds,
         concept_values,
@@ -1037,22 +1021,18 @@ def compute_centrality(
 
 
 def compute_cluster(
-    codexkg,
     action: str,
     choice: str,
     cluster_concepts: list,
-    given_type: str,
     k_min: int,
 ):
     """
     Purpose:
         computer cluser in grakn
     Args:
-        codexkg: codex kg
         action: str: cluster specific action
         cluster_type: type of cluster,
         cluster_concepts: list of concepts,
-        given_type: concept to hone in on,
         k_min: how many k groups,
     Returns:
         codex_query - Cluster object
@@ -1124,9 +1104,7 @@ def codex_cluster_action(
             codexkg, action, cluster_type, cluster_concepts, given_type, k_min
         )
     elif cluster_action == "cluster":
-        return compute_cluster(
-            codexkg, action, cluster_type, cluster_concepts, given_type, k_min
-        )
+        return compute_cluster(action, cluster_type, cluster_concepts, k_min)
     else:
         raise ValueError(
             f"cluster_action: {cluster_action} is not defined, muse be either centrality or cluster"
