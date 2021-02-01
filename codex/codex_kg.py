@@ -6,7 +6,7 @@ import pprint
 
 import pandas as pd
 from grakn.client import GraknClient
-import redis
+#import redis
 
 from .grakn_functions import load_entity_into_grakn
 from .grakn_functions import add_entities_into_grakn
@@ -36,10 +36,10 @@ class CodexKg:
         self,
         uri="localhost:48555",
         credentials=None,
-        redis_host="localhost",
-        redis_port=6379,
-        redis_db=0,
-        redis_password=None,
+        # redis_host="localhost",
+        # redis_port=6379,
+        # redis_db=0,
+        # redis_password=None,
     ):
         """
         Purpose:
@@ -47,10 +47,6 @@ class CodexKg:
         Args:
             uri: grakn url
             credentials: grakn credentials
-            redis_host: redis location
-            redis_port: redis port
-            redis_db: redis db
-            redis_password: redis credentials
         Returns:
             N/A
         """
@@ -67,13 +63,13 @@ class CodexKg:
         # self.query_map = {}
 
         # connect to redis
-        try:
-            self.cache = redis.Redis(
-                host=redis_host, port=redis_port, db=redis_db, password=redis_password
-            )
-        except Exception as error:
-            logging.error("Couldnt connect to cache:" + str(error))
-            raise
+        # try:
+        #     self.cache = redis.Redis(
+        #         host=redis_host, port=redis_port, db=redis_db, password=redis_password
+        #     )
+        # except Exception as error:
+        #     logging.error("Couldnt connect to cache:" + str(error))
+        #     raise
 
     def get_concepts_grakn(self):
         """
@@ -114,7 +110,7 @@ class CodexKg:
             logging.error(error)
             return []
 
-    def create_db(self, db_name: str, check_grakn=False) -> int:
+    def create_db(self, db_name: str) -> int:
         """
         Purpose:
             Connect to Grakn keyspace
@@ -139,14 +135,14 @@ class CodexKg:
                 rkey = key_prefix + db_name
                 self.rkey = rkey
 
-                if self.cache.exists(rkey):
-                    # load data
-                    logging.info("Loading data from redis")
+                # if self.cache.exists(rkey):
+                #     # load data
+                #     logging.info("Loading data from redis")
 
-                    curr_keyspace = json.loads(self.cache.get(self.rkey))
-                    self.entity_map = curr_keyspace["entity_map"]
-                    self.rel_map = curr_keyspace["rel_map"]
-                    self.rules_map = curr_keyspace["rules_map"]
+                #     curr_keyspace = json.loads(self.cache.get(self.rkey))
+                #     self.entity_map = curr_keyspace["entity_map"]
+                #     self.rel_map = curr_keyspace["rel_map"]
+                #     self.rules_map = curr_keyspace["rules_map"]
                     # self.query_map = {}
                     # self.lookup_map = {}
 
@@ -155,36 +151,20 @@ class CodexKg:
                     # self.query_map = curr_keyspace["query_map"]
                     # self.lookup_map = curr_keyspace["lookup_map"]
 
-                else:
-                    logging.info("Creating new keypsace in redis")
-                    blank_keyspace = {}
+                # else:
+                #     logging.info("Creating new keypsace in redis")
+                #     blank_keyspace = {}
 
                     # check the db if there is data first
 
-                    if check_grakn:
-                        logging.info("Checking grakn for concepts")
-                        ent_map, rel_map = self.get_concepts_grakn()
-                    else:
-                        ent_map = {}
-                        rel_map = {}
+                
+                logging.info("Checking grakn for concepts")
+                ent_map, rel_map = self.get_concepts_grakn()
 
-                    blank_keyspace["entity_map"] = ent_map
-                    blank_keyspace["rel_map"] = rel_map
+                # self.cache.set(rkey, json.dumps(blank_keyspace))
 
-                    blank_keyspace["rules_map"] = {}
-
-                    # TODO someother time for nl queries
-                    # blank_keyspace["lookup_map"] = {}
-                    # blank_keyspace["lookup_map"]["Find"] = {}
-                    # blank_keyspace["lookup_map"]["Compute"] = {}
-                    # blank_keyspace["lookup_map"]["Cluster"] = {}
-                    # blank_keyspace["lookup_map"]["Reason"] = {}
-                    # blank_keyspace["lookup_map"]["Center"] = {}
-                    # blank_keyspace["query_map"] = {}
-                    self.cache.set(rkey, json.dumps(blank_keyspace))
-
-                    self.entity_map = ent_map
-                    self.rel_map = rel_map
+                self.entity_map = ent_map
+                self.rel_map = rel_map
 
                 return 0
         except Exception as error:
@@ -209,7 +189,7 @@ class CodexKg:
                 client.keyspaces().delete(self.keyspace)
 
                 # delete redis key as well
-                self.cache.delete(self.rkey)
+                # self.cache.delete(self.rkey)
                 self.entity_map = {}
                 self.rel_map = {}
 
@@ -254,11 +234,11 @@ class CodexKg:
 
                     # add to redis
                     # get current key space
-                    curr_keyspace = json.loads(self.cache.get(self.rkey))
+                    #curr_keyspace = json.loads(self.cache.get(self.rkey))
                     # update entity map
-                    curr_keyspace["entity_map"] = self.entity_map
+                    # curr_keyspace["entity_map"] = self.entity_map
                     # update redis
-                    self.cache.set(self.rkey, json.dumps(curr_keyspace))
+                    #self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
                     return 0, "good"
         except Exception as error:
@@ -360,12 +340,12 @@ class CodexKg:
                     add_relationship_data(df, self.rel_map[rel_name], rel_name, session)
 
                     # get current key space
-                    curr_keyspace = json.loads(self.cache.get(self.rkey))
-                    # update both maps
-                    curr_keyspace["rel_map"] = self.rel_map
-                    curr_keyspace["entity_map"] = self.entity_map
-                    # update redis
-                    self.cache.set(self.rkey, json.dumps(curr_keyspace))
+                    # curr_keyspace = json.loads(self.cache.get(self.rkey))
+                    # # update both maps
+                    # curr_keyspace["rel_map"] = self.rel_map
+                    # curr_keyspace["entity_map"] = self.entity_map
+                    # # update redis
+                    # self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
                     return 0, "good"
         except Exception as error:
@@ -440,12 +420,12 @@ class CodexKg:
                         rule_name = query_object.rule["name"]
                         self.rules_map[rule_name] = query_grakn(session, query_object)
 
-                        # get current key space
-                        curr_keyspace = json.loads(self.cache.get(self.rkey))
-                        # update rules maps
-                        curr_keyspace["rules_map"] = self.rules_map
-                        # update redis
-                        self.cache.set(self.rkey, json.dumps(curr_keyspace))
+                        # # get current key space
+                        # curr_keyspace = json.loads(self.cache.get(self.rkey))
+                        # # update rules maps
+                        # curr_keyspace["rules_map"] = self.rules_map
+                        # # update redis
+                        # self.cache.set(self.rkey, json.dumps(curr_keyspace))
 
                         return self.rules_map[rule_name]
 

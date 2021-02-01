@@ -4,7 +4,6 @@ from typing import Any, Dict, List
 
 import pandas as pd
 from grakn.client import GraknClient
-import redis
 
 from abc import ABC, abstractmethod
 

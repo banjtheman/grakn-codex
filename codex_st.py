@@ -428,6 +428,12 @@ def make_find_action_obj(codexkg, rule_num):
             concept_rels.append(concept_rel)
             # for each concept select conds
 
+            # st.write("lolcatsnburger")
+            # st.write(concept_map)
+            # st.write(concept_rel)
+
+            # st.write(codexkg.entity_map)
+
             other_attr_list = list(codexkg.entity_map[concept_rel]["cols"].keys())
 
             other_concept_attrs = st.multiselect(
@@ -1036,18 +1042,18 @@ def get_codex_keyspaces():
     Returns:
         N/A
     """
-    st.sidebar.subheader("Here are options to configure the Grakn and Redis Databases")
+    st.sidebar.subheader("Here are options to configure the Grakn")
     expander = st.sidebar.beta_expander("Database Options")
 
     uri = expander.text_input("Grakn uri", value="localhost:48555")
     credentials = expander.text_input("Grakn Password")
-    redis_host = expander.text_input("Redis Host", value="localhost")
-    redis_port = expander.number_input("Redis Port", min_value=1, value=6379, step=1)
-    redis_db = expander.number_input("Redis db", min_value=0, value=0, step=1)
-    redis_password = expander.text_input("Redis Password")
+    # redis_host = expander.text_input("Redis Host", value="localhost")
+    # redis_port = expander.number_input("Redis Port", min_value=1, value=6379, step=1)
+    # redis_db = expander.number_input("Redis db", min_value=0, value=0, step=1)
+    # redis_password = expander.text_input("Redis Password")
 
-    if redis_password == "":
-        redis_password = None
+    # if redis_password == "":
+    #     redis_password = None
 
     if credentials == "":
         credentials = None
@@ -1055,10 +1061,10 @@ def get_codex_keyspaces():
     codexkg = CodexKg(
         uri=uri,
         credentials=credentials,
-        redis_host=redis_host,
-        redis_port=redis_port,
-        redis_db=redis_db,
-        redis_password=redis_password,
+        # redis_host=redis_host,
+        # redis_port=redis_port,
+        # redis_db=redis_db,
+        # redis_password=redis_password,
     )
 
     status_container = st.empty()
